@@ -531,8 +531,38 @@ function renderDock() {
 function lookPicker(cur, taken) {
   return `<div class="look">
     <div><label>カラー</label><div class="swatches">${COLORS.map((c, k) => `<button data-color="${k}" aria-pressed="${cur.color === k}" ${taken.includes(k) ? 'disabled title="使用中"' : ''} style="--c:${c}">${symSvg(k, c, 16)}</button>`).join('')}</div></div>
-    <div><label>キャラ（見た目だけ。性能差なし）</label><div class="styles">${STYLE_NAMES.map((n, k) => `<button data-style="${k}" aria-pressed="${cur.style === k}">${n}</button>`).join('')}</div></div>
+    <div><label>キャラ（見た目だけ。性能差なし）</label><div class="styles">${STYLE_NAMES.map((n, k) => `<button data-style="${k}" aria-pressed="${cur.style === k}" title="${n}">${avatarSvg(k, COLORS[cur.color] || COLORS[0], 44)}<span>${n}</span></button>`).join('')}</div></div>
   </div>`;
+}
+// 2D portrait of the 3D avatar (same hood, face ring, eyes and accessory per style) for lobby / pickers
+function avatarSvg(style, hex, size = 48) {
+  const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const mix = (k, b) => '#' + rgb.map(v => Math.round(v * k + b).toString(16).padStart(2, '0')).join('');
+  const dark = mix(0.3, 13), mid = mix(0.5, 18), c = hex, W = '#fff';
+  let back = '', front = '', eyes = '';
+  switch (style % 8) {
+    case 0: eyes = `<circle cx="26" cy="36" r="2.6" fill="${W}"/><circle cx="38" cy="36" r="2.6" fill="${W}"/>`; break;
+    case 1: eyes = `<rect x="20" y="34.5" width="24" height="3.2" rx="1.6" fill="${W}"/>`;
+      back = `<path d="M5 30l11-4 1 9-11 3z M59 30l-11-4-1 9 11 3z" fill="${mid}"/>`; front = `<rect x="18" y="27" width="28" height="1.8" rx=".9" fill="${c}"/>`; break;
+    case 2: eyes = `<path d="M22 37.5l7-3M42 37.5l-7-3" stroke="${W}" stroke-width="2.4" stroke-linecap="round"/>`;
+      back = `<path d="M14 18L16 2l11 10z M50 18L48 2 37 12z" fill="${mid}"/><path d="M17 13l1-7 5 5z M47 13l-1-7-5 5z" fill="${c}"/>`; break;
+    case 3: eyes = `<circle cx="32" cy="36" r="4" fill="${W}"/>`;
+      back = `<path d="M39 13l6-11" stroke="#555a60" stroke-width="2"/>`; front = `<circle cx="45.5" cy="3.5" r="3.3" fill="${c}"/>`; break;
+    case 4: eyes = `<rect x="23.5" y="33.5" width="5" height="5" fill="${W}"/><rect x="35.5" y="33.5" width="5" height="5" fill="${W}"/>`;
+      back = `<path d="M8 34C8 8 56 8 56 34" fill="none" stroke="#24272c" stroke-width="3.4"/>`;
+      front = `<rect x="3" y="27" width="9" height="15" rx="4" fill="#202328" stroke="${c}" stroke-width="1.8"/><rect x="52" y="27" width="9" height="15" rx="4" fill="#202328" stroke="${c}" stroke-width="1.8"/>`; break;
+    case 5: eyes = `<circle cx="24.5" cy="35" r="2.4" fill="${W}"/><circle cx="32" cy="38.5" r="2.4" fill="${W}"/><circle cx="39.5" cy="35" r="2.4" fill="${W}"/>`;
+      back = `<path d="M18 17C12 12 8 6 7 1c5 3 10 7 15 12z M46 17c6-5 10-11 11-16-5 3-10 7-15 12z" fill="#e6dcc7"/>`; break;
+    case 6: eyes = `<path d="M22 34.5l7 3M42 34.5l-7 3" stroke="${W}" stroke-width="2.4" stroke-linecap="round"/>`;
+      back = `<path d="M28 13l1-11h6l1 11z" fill="${mid}"/><rect x="29" y="1" width="6" height="3" rx="1" fill="${c}"/><path d="M27 15l-7-8 4-2 6 9z M37 15l7-8-4-2-6 9z" fill="${mid}"/>`; break;
+    case 7: eyes = `<rect x="21" y="38" width="8" height="1.8" fill="${W}"/><rect x="35" y="38" width="8" height="1.8" fill="${W}"/>`;
+      front = `<path d="M16 32L32 27 48 32 32 36.5z" fill="${c}" opacity=".85"/>`; break;
+  }
+  return `<svg class="ava" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">${back}
+    <path d="M4 64C4 52 6 46 12 42 9 22 18 11 32 11s23 11 20 31c6 4 8 10 8 22z" fill="${dark}"/>
+    <path d="M12 44C9 23 18 12 32 12s23 11 20 32c-5 3-11 4-20 4s-15-1-20-4z" fill="${mid}"/>
+    <ellipse cx="32" cy="36" rx="14" ry="9.5" fill="#05080a" stroke="${c}" stroke-width="2"/>${eyes}
+    <rect x="29.5" y="54" width="5" height="5" transform="rotate(45 32 56.5)" fill="${c}"/>${front}</svg>`;
 }
 function myLook() { const l = store.get('gp.look') || {}; return { color: Number.isInteger(l.color) ? l.color : 0, style: Number.isInteger(l.style) ? l.style : 0 }; }
 // title / lobby: the 3D table plays an attract loop behind the menus
@@ -585,7 +615,7 @@ function renderLobby() {
  ${ST.isP2PHost ? `<div class="small" style="background:rgba(255,207,74,.12);border-radius:8px;padding:8px 10px;color:#ffe7a0">あなたのブラウザがこのルームの審判役です。<b>対戦が終わるまでこのタブを閉じないでください</b>（ほかのタブやDiscordを見ていても大丈夫）。PCでのホストがおすすめです。</div>` : ''}
     ${ST.wsMode && /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? `<div class="small" style="background:rgba(255,207,74,.12);border-radius:8px;padding:8px 10px;color:#ffe7a0">いま自分のPC（localhost）で開いています。友達には、起動した黒い画面に出た <b>https://〜.trycloudflare.com</b> のURLと、ルームコード <b>${esc(r.code)}</b> を送ってください。</div>` : ''}
     <div class="small">参加 ${n}/5 人（3人以上で開始）・審議 ${r.sec}秒</div>
-    <div class="members">${r.members.map(m => `<div class="mem">${symSvg(m.color, COLORS[m.color], 14)}<b>${esc(m.name)}</b><span class="small">${STYLE_NAMES[m.style] || ''}</span>${m.host ? '<span class="chip t">ホスト</span>' : ''}${m.bot ? '<span class="chip">練習CPU</span>' : ''}${m.id === ST.you.id ? '<span class="chip p">あなた</span>' : ''}
+    <div class="members">${r.members.map(m => `<div class="mem" style="--c:${COLORS[m.color]}"><span class="memava">${avatarSvg(m.style, COLORS[m.color], 40)}</span><div class="memtx"><b>${symSvg(m.color, COLORS[m.color], 12)}${esc(m.name)}</b><span class="small">${STYLE_NAMES[m.style] || ''}</span></div>${m.host ? '<span class="chip t">ホスト</span>' : ''}${m.bot ? '<span class="chip">練習CPU</span>' : ''}${m.id === ST.you.id ? '<span class="chip p">あなた</span>' : ''}
       ${host && m.id !== ST.you.id ? `<button class="x" data-kick="${m.id}">外す</button>` : ''}</div>`).join('')}</div>
     <details class="lookbox" open><summary>自分の見た目</summary>${lookPicker({ color: meM.color, style: meM.style }, taken)}</details>
     ${host ? `<div><label>ダウト審議時間（開始後は変更不可）</label><div class="seg">${[20, 40, 60].map(s => `<button data-setsec="${s}" aria-pressed="${r.sec === s}">${s}秒${s === 40 ? '（標準）' : ''}</button>`).join('')}</div></div>

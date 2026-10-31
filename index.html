@@ -275,7 +275,12 @@ body:not([data-layout=pc]) .pcOnly{display:none!important}
 .swatches button[aria-pressed="true"]{border-color:var(--c);box-shadow:0 0 12px var(--c)}
 .swatches button:disabled{opacity:.25;cursor:not-allowed}
 .styles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.styles button{padding:6px 2px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.3);font-size:12px;font-weight:700;color:var(--mute)}
+.styles button{padding:5px 2px 4px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.3);font-size:11px;font-weight:700;color:var(--mute);display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.2}
+.styles button .ava{width:44px;height:44px;transition:transform .15s}
+.styles button:hover .ava{transform:translateY(-2px)}
+.styles button[aria-pressed="true"]{background:rgba(255,207,74,.12)}
+.memava{flex:none;width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--c) 30%,transparent),rgba(0,0,0,.35) 70%);border:1px solid color-mix(in srgb,var(--c) 55%,transparent)}
+.memtx{display:flex;flex-direction:column;min-width:0;line-height:1.25}.memtx b{display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .styles button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
 .lookbox summary{cursor:pointer;font-size:13px;color:var(--mute);font-weight:700}
 .lobbyp{width:min(640px,100%)}
