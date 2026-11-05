@@ -362,7 +362,8 @@ function hideDuel() { const el = $('#duelBox'); if (el) { el.hidden = true; el.i
 // the private roll: a die rattles under a cup; the cup lifts only for you (or only while held, with the guard on)
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8] };
 function dieHtml(v, small) {
-  if (v === 'X') return `<div class="die x ${small ? 'sm' : ''}"><span>×</span></div>`;
+  // drawn as SVG so the cross is always centred and sized to the die (a text "×" depends on the font)
+  if (v === 'X') return `<div class="die x ${small ? 'sm' : ''}"><svg viewBox="0 0 10 10" aria-label="×"><path d="M2.6 2.6L7.4 7.4M7.4 2.6L2.6 7.4"/></svg></div>`;
   return `<div class="die ${small ? 'sm' : ''}">${Array.from({ length: 9 }, (_, k) => `<i class="${(PIPS[v] || []).includes(k) ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 function cupHtml(state, roll, peekable) {
