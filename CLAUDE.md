@@ -32,7 +32,7 @@
 - 通信：`class Online`（WS・開発サーバー用）、`class Local`（練習モード）、`hostP2P / joinP2P / connectOnline`（末尾の boot 付近）、`send`
 - 受信：`onMsg` → `hardSync` → 演出キュー `queue / runQ` → `fx(e)`（イベントごとの演出 switch）
 - 表示の保留：`DV() / RV()`。ダウト結果のネタバレ防止のため、演出中は前の見え方を見せている
-- ダウト演出：`duelHtml / showDuel / endSuspense`
+- ダウト演出：`duelHtml / showDuel / endSuspense`。PCは盤面上の大きいカード（`#duelBox`）だけ、スマホは操作パネル内の細いカード（`duelMini`）だけを出す（二重表示しない）
 - カップ：`syncRoll / myRollPending / shakeStart / shakeEnd / land`（演出だけ。出目は手番開始時にホストが決めている）。`cupHtml / dieHtml`
 - HUD：`render` → `renderStatus`（3Dの状態とカップ）`renderBanner` `renderRail` `renderRack` `renderDock`（下の操作パネル）`declTiles`
 - 画面：`renderTitle / renderLobby / renderOver / lookPicker / avatarSvg / guide / openSheet / modal / RULES`
@@ -45,7 +45,7 @@
 サーバー → 各自に `sync`（`you, room, view, events[]`）。`events` が演出の元：`start turn rollfx declare pass doubtIn reveal passed goal cat confiscate over react say streak disc` など。
 
 ### style.css の注意
-上から「基本 → 端末別レイアウト → アナログ風の見た目 → 磨き込み → v3（読みやすさ・カップ）」の順に重ねている。**後に書いたブロックが前を上書きする**。直すときは既存ブロックを探して直すか、末尾の v3 ブロックに足す。`!important` は v3 の演出文字（`.sp`）など一部だけ。
+上から「基本 → 端末別レイアウト → アナログ風の見た目 → 磨き込み → v3（読みやすさ・カップ） → v4（スマホの小さい操作パネル・ダウトカード・閉じられるシート）」の順に重ねている。**後に書いたブロックが前を上書きする**。直すときは既存ブロックを探して直すか、末尾の v3 ブロックに足す。`!important` は v3 の演出文字（`.sp`）など一部だけ。
 レイアウトは `body[data-layout]` = `pc` / `port`（スマホ縦）/ `land`（スマホ横）。
 
 ## テスト（Node 22）
@@ -58,6 +58,7 @@ N=1 node dev/test/soak.test.js   # soak を1局だけ
 - 画面の確認：リポジトリ直下を配信して（`python3 -m http.server 8099` か `PORT=8099 npm run dev`）
   - `node dev/tools/shots-roll.js <出力先>` …練習モードで手番の流れを PC・スマホ縦・スマホ横で撮影
   - `node dev/tools/shots-all.js <出力先>` …タイトル〜結果まで一通り撮影
+  - `node dev/tools/shots-phone.js <出力先> [url] [390x620]` …iPhone Safari 相当の画面で、審議・自分のダウト（照合〜結果）・手番・メニューを撮影
   - `node dev/tools/e2e-p2p.js <出力先> http://localhost:8097/` …PeerJS を BroadcastChannel の偽物（`mockpeer.js`）に差し替え、ホスト＋参加者3人のタブで通しテスト（出目漏れ・再接続・ホスト退出）
 
 ## 作業環境のクセ（クラウド作業環境）

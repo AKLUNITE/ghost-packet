@@ -15,10 +15,10 @@ const out = process.argv[2] || '.', url = process.argv[3] || 'http://localhost:8
     await p.waitForTimeout(500); await S('start');
     const shots = new Set();
     for (let k = 0; k < 400 && shots.size < 7; k++) {
-      const st = await p.evaluate(() => { const v = __GP.ST.view; if (!v) return {}; return { ph: v.phase, t: v.turn, me: __GP.ST.you.seat, spin: __GP.ST.spin.active, susp: !!__GP.ST.suspense, stage: __GP.ST.duelStage, over: !!v.over, kind: v.last && v.last.kind }; });
+      const st = await p.evaluate(() => { const v = __GP.ST.view; if (!v) return {}; return { ph: v.phase, t: v.turn, me: __GP.ST.you.seat, spin: __GP.ST.roll.st !== 'done' && __GP.ST.roll.id === __GP.ST.room.turnId, rst: __GP.ST.roll.st, susp: !!__GP.ST.suspense, stage: __GP.ST.duelStage, over: !!v.over, kind: v.last && v.last.kind }; });
       if (st.over) { await p.waitForTimeout(2500); await S('over'); break; }
-      if (st.ph === 'declare' && st.t === st.me && st.spin && !shots.has('spin')) { shots.add('spin'); await p.waitForTimeout(400); await S('spin'); }
-      if (st.ph === 'declare' && st.t === st.me && !st.spin) { if (!shots.has('mine')) { shots.add('mine'); await S('mine'); } await p.evaluate(() => { const b = [...document.querySelectorAll('[data-decl]')]; b[Math.floor(Math.random() * 4)].click(); }); }
+      if (st.ph === 'declare' && st.t === st.me && st.rst === 'ready') { if (!shots.has('spin')) { shots.add('spin'); await S('spin'); } await p.keyboard.press('Enter'); await p.waitForTimeout(1600); continue; }
+      if (st.ph === 'declare' && st.t === st.me && !st.spin) { if (!shots.has('mine')) { shots.add('mine'); await S('mine'); } await p.evaluate(() => { const b = [...document.querySelectorAll('[data-decl]')]; const t = b[Math.floor(Math.random() * 4)]; t.click(); t.click(); }); }
       if (st.ph === 'declare' && st.t !== st.me && !shots.has('other')) { shots.add('other'); await S('other'); }
       if (st.ph === 'review' && st.t !== st.me && !st.susp) { if (!shots.has('review')) { shots.add('review'); await p.waitForTimeout(600); await S('review'); }
         await p.evaluate(() => { if (Math.random() < .35) document.querySelector('[data-doubt]') && document.querySelector('[data-doubt]').click(); else { const d = document.querySelector('[data-pass][aria-pressed="false"]'); d && d.click(); } }); }

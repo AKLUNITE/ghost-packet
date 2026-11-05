@@ -637,3 +637,67 @@ label{color:#c9dacf}
 [data-layout=land] #dock{width:100%;box-sizing:border-box}
 [data-layout=port] .rolltx .big{font-size:19px}
 @media (prefers-reduced-motion:reduce){.cupbox.shake,.cupbox.shake .cup,.cupbox.ready,.cupbox.ready .cup,.minicup{animation-duration:.4s!important}}
+
+/* ═════ v4: phones — compact dock so the board stays visible; one duel card; closable sheet ═════ */
+/* sheet: sticky header with a close button, never taller than the visible screen */
+.sheet{max-height:min(72vh,72dvh);padding-top:0}
+.shead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;margin:0 -16px 6px;padding:8px 16px 8px;background:inherit;background:#13231e;border-bottom:1px solid var(--keyline)}
+.shead .grab{position:absolute;left:50%;top:5px;transform:translateX(-50%);margin:0}
+.shead .sht{font-family:var(--f-disp);font-size:18px;margin-top:6px}
+.shx{margin-left:auto;margin-top:6px;background:var(--cream);color:var(--paperink);border:0;border-radius:999px;padding:7px 14px;font-weight:900;font-size:14px;box-shadow:0 2px 0 #a99877}
+[data-layout=pc] .shead{margin:0 -16px 6px;border-radius:18px 18px 0 0}
+/* compact review dock (portrait) */
+[data-layout=port] .dock{padding:8px 10px;gap:6px}
+[data-layout=port] .claim{flex-wrap:nowrap;gap:8px;align-items:center}
+[data-layout=port] .claim > div:last-child{flex-basis:auto;margin-left:auto!important}
+[data-layout=port] .hglass svg{width:22px;height:34px}
+[data-layout=port] .timer{font-size:30px;min-width:1.6ch}
+[data-layout=port] .claimtile{width:40px;height:40px;font-size:26px;border-radius:8px}
+[data-layout=port] .claimbox .small{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
+[data-layout=port] .claimbox .row{gap:6px!important}
+[data-layout=port] .claimbox .row .small{display:none}
+[data-layout=port] .passbar{font-size:11px;flex-wrap:nowrap}
+[data-layout=port] .passbar i{width:12px;height:12px;border-radius:50%}
+[data-layout=port] .histline{display:none}
+[data-layout=port] .acts .acard2{flex-direction:row;padding:10px 6px!important;gap:6px;min-height:0}
+[data-layout=port] .acts .acard2 .ck{display:none}
+[data-layout=port] .acts .acard2 svg{width:22px;height:22px}
+[data-layout=port] .acts .acard2 b{font-size:21px!important;letter-spacing:.04em;white-space:nowrap}
+[data-layout=port] .acts .acard2 small{display:none}
+[data-layout=port] .acts .acard2 .kbd{display:none}
+[data-layout=port] .tabs button{padding:7px 4px;font-size:13px}
+[data-layout=port] .mine{padding:6px 8px;gap:8px}
+[data-layout=port] .mine .ms{font-size:12px}
+[data-layout=port] .row.small .stakes button{padding:4px 8px}
+/* my turn (portrait): smaller cup, tiles in one row */
+[data-layout=port] .cupbox{width:78px;height:78px}[data-layout=port] .cupbox .cup{height:68px;left:5px;right:5px}[data-layout=port] .cupbox .die{width:42px;height:42px;padding:6px}[data-layout=port] .cupbox .die i{width:8px;height:8px}
+[data-layout=port] .cupbox .cuplbl{top:26px;font-size:9.5px}[data-layout=port] .cupbox .cuplbl.go{top:auto;bottom:8px;font-size:10px;padding:2px 7px}
+[data-layout=port] .tier{font-size:18px}
+[data-layout=port] .decl{grid-template-columns:repeat(4,1fr)!important;gap:6px}
+[data-layout=port] .decl button.tile{padding:6px 0 5px!important}
+[data-layout=port] .decl button.tile .tn{font-size:26px!important}
+[data-layout=port] .decl button.tile .die.sm{display:none}
+[data-layout=port] .decl button.tile small{font-size:11px}
+[data-layout=port] .decl button.tile .kbd{display:none}
+[data-layout=port] .rolltx .small{font-size:12px}
+/* phones: the duel card (dock only) */
+.dmini{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.28);box-shadow:inset 0 0 0 1px rgba(255,90,120,.45)}
+.dmini.res{box-shadow:inset 0 0 0 1px var(--keyline)}
+.dm-row{display:flex;align-items:center;gap:8px;min-width:0}
+.dm-p{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:5px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.3);box-shadow:inset 0 0 0 2px var(--pc);font-weight:900;font-size:15px}
+.dm-p .dm-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dm-p b{margin-left:auto;font-family:var(--f-disp);font-weight:400;font-size:15px;letter-spacing:.06em}
+.dm-p.win{background:rgba(255,207,74,.16)}.dm-p.win b{color:#ffd35c}
+.dm-p.lose{opacity:.75}.dm-p.lose b{color:#ff7d92}
+.dm-ar{flex:none;display:flex;flex-direction:column;align-items:center;font-family:var(--f-disp);font-size:11px;letter-spacing:.12em;color:#ff7d92;line-height:1}
+.dm-ar i{font-style:normal;font-size:18px}
+.dm-2{justify-content:center;gap:16px}
+.dm-v{font-size:13px;color:var(--mute)}.dm-v b{font-family:var(--f-old);font-weight:900;font-size:24px;color:var(--ink);margin-left:3px}
+.dm-v b.ok{color:#5dffb0}.dm-v b.ng{color:#ff6a7f}.dm-v b.q{color:#ffd35c}
+.dm-st{font-family:var(--f-disp);color:var(--gold);letter-spacing:.15em;font-size:14px}
+.dm-stamp{font-family:var(--f-old);font-weight:900;font-size:16px;padding:2px 10px;border:2px solid currentColor;border-radius:6px;transform:rotate(-4deg)}
+.dm-stamp.ok{color:#5dffb0}.dm-stamp.ng{color:#ff6a7f}
+.dm-out{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mute);flex-wrap:wrap}
+.dmini .dscan{margin:0}
+[data-layout=land] .dm-p{font-size:13px;padding:4px 6px}[data-layout=land] .dm-v b{font-size:20px}
+.sheet .row .go.ghost{font-size:15px;padding:10px 6px;white-space:nowrap;letter-spacing:.02em}

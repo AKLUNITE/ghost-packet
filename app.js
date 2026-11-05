@@ -318,7 +318,23 @@ async function fx(e) {
 
 // ───────── duel card: who audited whom, and who won (shown from your point of view) ─────────
 function roleOf(ch, sd) { const m = me(); return m === ch ? 'ch' : m === sd ? 'sd' : 'by'; }
+// phones: one slim card in the dock (no floating overlay)
+function duelMini(stage, d) {
+  const res = stage === 'result', R = d.roll === 'X' ? '×' : d.roll, chWin = res && !d.truth;
+  const pill = (i, win) => { const pp = palOf(i); return `<span class="dm-p ${res ? (win ? 'win' : 'lose') : ''}" style="--pc:${pp.hex}">${symSvg(pp.sym, pp.hex, 12)}<span class="dm-n">${i === me() ? 'あなた' : nm(i)}</span>${res ? `<b>${win ? 'WIN' : 'LOSE'}</b>` : ''}</span>`; };
+  const chOut = d.truth ? (d.stake && d.stake.kind === 'goal' ? `ゴール済み${d.stake.rank}点を没収` : 'パケット没収') : (d.stake && d.stake.kind === 'goal' ? '前進なし' : `+${d.value} 前進`);
+  const sdOut = d.truth ? `+${d.value} 前進` : '猫動画に';
+  const actual = res ? `<b class="${d.truth ? 'ok' : 'ng'}">${R}</b>` : `<b class="q">?</b>`;
+  const tail = res ? `<span class="dm-stamp ${d.truth ? 'ok' : 'ng'}">${d.truth ? '本当だった' : '嘘だった'}</span>`
+    : `<span class="dm-st">${stage === 'flip' ? '結果発表…' : '照合中…'}</span>`;
+  return `<div class="dmini ${res ? 'res' : stage}">
+    <div class="dm-row">${pill(d.ch, chWin)}<span class="dm-ar">DOUBT<i>→</i></span>${pill(d.sd, res && !chWin)}</div>
+    <div class="dm-row dm-2"><span class="dm-v">申告 <b>${d.value}</b></span><span class="dm-v">実際 ${actual}</span>${tail}</div>
+    ${stage === 'scan' ? `<div class="dscan" style="--scan:${ST.scanMs || 1700}ms"><i></i></div>` : ''}
+    ${res ? `<div class="dm-out"><span>${d.ch === me() ? 'あなた' : nm(d.ch)}：${chOut}</span><span>${d.sd === me() ? 'あなた' : nm(d.sd)}：${sdOut}</span></div>` : ''}</div>`;
+}
 function duelHtml(stage, d, compact) {
+  if (compact && ST.layout !== 'pc') return duelMini(stage, d);
   const res = stage === 'result', R = d.roll === 'X' ? '×' : d.roll;
   const chWin = res && !d.truth, sdWin = res && d.truth;
   const side = (i, role, win, out) => {
@@ -339,7 +355,7 @@ function duelHtml(stage, d, compact) {
   return `<div class="duel ${compact ? 'compact' : ''} ${res ? 'res' : stage === 'call' ? 'call' : 'scan'}">${compact ? '' : '<div class="dhead">AUDIT</div>'}
     <div class="drow">${side(d.ch, 'ダウトした人', chWin, chOut)}<div class="dmid">${mid}</div>${side(d.sd, '申告した人', sdWin, sdOut)}</div>${prog}${note}</div>`;
 }
-function showDuel(stage, d) { const el = $('#duelBox'); el.innerHTML = duelHtml(stage, d); el.classList.toggle('res', stage === 'result'); el.hidden = false; }
+function showDuel(stage, d) { const el = $('#duelBox'); if (ST.layout !== 'pc') { hideDuel(); return; } el.innerHTML = duelHtml(stage, d); el.classList.toggle('res', stage === 'result'); el.hidden = false; }
 function hideDuel() { const el = $('#duelBox'); if (el) { el.hidden = true; el.innerHTML = ''; } }
 
 // ───────── private roll slot ─────────
@@ -560,7 +576,10 @@ function renderDock() {
     : `<div class="tabs"><button data-sheet="stamps">スタンプ</button><button data-sheet="rack">ゴール台</button>${ST.showLog ? '<button data-sheet="log">ログ</button>' : ''}</div>`;
   const hidden = ST.guard && !ST.peeking;   // hold-to-peek guard
   const K = (k) => `<span class="kbd">${k}</span>`;
-  if (ST.suspense && ST.duelData) { d.innerHTML = duelHtml(ST.duelStage || 'call', ST.duelData, true) + stamps; return; }
+  if (ST.suspense && ST.duelData) {
+    const dd = ST.duelData;
+    d.innerHTML = (ST.layout === 'pc' ? `<div class="big" style="text-align:center">${who(dd.ch)} が ${who(dd.sd)} の「${dd.value}」をダウト — ${ST.duelStage === 'flip' ? '結果発表…' : '照合中…'}</div>` : duelMini(ST.duelStage || 'call', dd)) + stamps; return;
+  }
   if (v.over) { h = `<div class="big">対戦終了</div>`; d.innerHTML = h; return; }
   if (v.phase === 'declare') {
     if (v.turn === me()) {
@@ -608,6 +627,7 @@ function renderDock() {
   } else if (v.phase === 'result' && v.last) {
     const L = v.last;
     if (L.kind === 'pass') h = `<div class="big">${who(L.seat)} の申告 ${L.value} を承認</div><div class="small">本当の出目は最後まで公開されません。</div>`;
+    else if (ST.layout === 'pc' && !$('#duelBox').hidden) h = `<div class="big" style="text-align:center">${who(L.challenger)} → ${who(L.seat)}：${L.truth ? '本当だった' : '嘘だった'}（申告 ${L.value}・実際 ${L.roll === 'X' ? '×' : L.roll}）</div>`;
     else h = duelHtml('result', { ch: L.challenger, sd: L.seat, value: L.value, roll: L.roll, truth: L.truth, stake: L.stake, contenders: L.contenders }, true);
   }
   d.innerHTML = h + stamps;
@@ -760,17 +780,18 @@ function closeSheet() { ST.sheet = null; $('#sheet').hidden = true; $('#sheetBac
 function renderSheet() {
   const k = ST.sheet, el = $('#sheet'); if (!k) return;
   const sw = (id, on, label, sub) => `<div class="opt"><div>${label}${sub ? `<small>${sub}</small>` : ''}</div><button class="sw" data-opt="${id}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></div>`;
-  let h = '<div class="grab"></div>';
+  const titles = { menu: 'メニュー', stamps: 'スタンプ', rack: 'ゴール台', log: '通信ログ' };
+  let h = `<div class="shead"><div class="grab"></div><span class="sht">${titles[k] || '詳細'}</span><button class="shx" data-sheetclose aria-label="閉じる">✕ 閉じる</button></div>`;
   if (k === 'menu') {
-    h += `<h3>メニュー</h3><div class="opt"><div>音量<small>BGMと効果音の全体</small></div><input type="range" class="vol" id="vol" min="0" max="100" value="${Math.round(A.vol * 100)}" aria-label="音量"></div>${sw('bgm', A.bgmOn, 'BGM')}${sw('sfx', A.sfxOn, '効果音')}${sw('guard', ST.guard, '出目ガード', '自分の出目を、押している間だけ表示')}${CAN_VIBE ? sw('vibe', ST.vibe, '振動', '手番・ダウト・残り5秒などで振動') : ''}
+    h += `<div class="opt"><div>音量<small>BGMと効果音の全体</small></div><input type="range" class="vol" id="vol" min="0" max="100" value="${Math.round(A.vol * 100)}" aria-label="音量"></div>${sw('bgm', A.bgmOn, 'BGM')}${sw('sfx', A.sfxOn, '効果音')}${sw('guard', ST.guard, '出目ガード', '自分の出目を、押している間だけ表示')}${CAN_VIBE ? sw('vibe', ST.vibe, '振動', '手番・ダウト・残り5秒などで振動') : ''}
       ${sw('calm', ST.calm, '演出ひかえめ', '画面の揺れ・フラッシュ・粒子を減らす')}
       ${sw('log', ST.showLog, '通信ログを表示', ST.layout === 'pc' ? '右側のログ欄を出す／隠す' : '操作パネルの「ログ」ボタンを出す／隠す')}
       ${ST.mode === 'online' && ST.room ? `<div class="opt"><div>通信の遅れ<small>サーバーまでの往復時間</small></div><b style="font-family:var(--f-mono)">${ST.ping != null ? ST.ping + ' ms' : '計測中'}</b></div>` : ''}
       <div class="row" style="margin-top:10px"><button class="go ghost" id="bGuide" style="flex:1">はじめての人へ</button><button class="go ghost" id="bRules" style="flex:1">ルール</button>${ST.room ? '<button class="go ghost" id="bLeave" style="flex:1">退出</button>' : ''}</div>`;
   } else if (!ST.view) { closeSheet(); return; }
-  else if (k === 'stamps') h += `<h3>スタンプ</h3><div class="stamps">${STAMPS.map((t, i) => `<button data-stamp="${i}">${t}</button>`).join('')}</div>`;
-  else if (k === 'rack') h += `<h3>ゴール台</h3><div class="rack" style="padding:0">${rackHtml()}</div>`;
-  else if (k === 'log') h += `<h3>通信ログ</h3><div class="log">${ST.logs.slice().reverse().map(x => `<div>${x}</div>`).join('')}</div>`;
+  else if (k === 'stamps') h += `<div class="stamps">${STAMPS.map((t, i) => `<button data-stamp="${i}">${t}</button>`).join('')}</div>`;
+  else if (k === 'rack') h += `<div class="rack" style="padding:0">${rackHtml()}</div>`;
+  else if (k === 'log') h += `<div class="log">${ST.logs.slice().reverse().map(x => `<div>${x}</div>`).join('')}</div>`;
   else if (k.startsWith('p')) {
     const i = +k.slice(1), p = DV().players[i]; if (!p) { closeSheet(); return; }
     const st = statusOf(p);
@@ -797,7 +818,7 @@ function bubble(seat, text, stamp) {
   const b = { el, seat, until: performance.now() + 2800 }; ST.bubbles.push(b); placeBubble(b);
   setTimeout(() => { el.remove(); ST.bubbles = ST.bubbles.filter(x => x !== b); }, 2800);
 }
-function placeBubble(b) { const cr = $('#gl').getBoundingClientRect(), p0 = S3.project(S3.headWorld(b.seat)), p = [p0[0] + cr.left, p0[1] + cr.top]; const off = ST.bubbles.filter(x => x.seat === b.seat && x !== b && x.until > b.until).length; b.el.style.left = p[0] + 'px'; b.el.style.top = (p[1] - 8 - off * 30) + 'px'; }
+function placeBubble(b) { const cr = $('#gl').getBoundingClientRect(), p0 = S3.project(S3.headWorld(b.seat)), p = [p0[0] + cr.left, p0[1] + cr.top]; const off = ST.bubbles.filter(x => x.seat === b.seat && x !== b && x.until > b.until).length; b.el.style.left = p[0] + 'px'; b.el.style.top = Math.max(cr.top + 44, p[1] - 8 - off * 30) + 'px'; b.el.style.left = Math.min(cr.right - 60, Math.max(cr.left + 60, p[0])) + 'px'; }
 function modal(html, own) { const m = $('#modal'); m.className = 'modal' + (own ? ' paper' : ''); m.hidden = false; m.innerHTML = `<div class="glass">${html}${own ? '' : '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="go ghost" data-close>閉じる</button></div>'}</div>`; }
 const RULES = `<h2>遊び方</h2>
  <p>全員がライバルのハッカー。各自7個の不正パケットを、9ノード先の目的サーバーへ1個ずつ送り込みます。<b>先に3個届けた人が即勝利</b>。</p>
@@ -810,7 +831,7 @@ const RULES = `<h2>遊び方</h2>
 // ───────── input ─────────
 document.addEventListener('click', (e) => {
   A.init(); if (A.mode === 'stop' && (!ST.room || ST.room.phase === 'lobby')) A.setMode('lobby');
-  if (e.target.id === 'sheetBack') { closeSheet(); return; }
+  if (e.target.id === 'sheetBack' || e.target.closest('[data-sheetclose]')) { closeSheet(); return; }
   const t = e.target.closest('button'); if (!t) { if (e.target.id === 'modal') $('#modal').hidden = true; return; }
   const ds = t.dataset;
   if (ds.close != null) { $('#modal').hidden = true; return; }
@@ -869,6 +890,7 @@ document.addEventListener('click', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ST.sheet) { closeSheet(); return; }
   if (e.target.tagName === 'INPUT') { if (e.key === 'Enter' && e.target.id === 'code') $('#bJoin').click(); return; }
   const v = ST.view; if (!v || v.over) return;
   if ((e.code === 'Space' || e.key === 'Enter') && myRollPending()) { e.preventDefault(); if (!e.repeat) { if (e.key === 'Enter') { shakeStart('key'); shakeEnd(true); } else shakeStart('key'); } return; }
