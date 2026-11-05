@@ -27,4 +27,8 @@
 - 出目はホストの端末で確定し、本人以外には送られません
 - 接続の仲介に PeerJS の無料ブローカーを使用（ゲームの通信内容は経由しません）
 
-ファイル：`engine.js` ルール / `room.js` 進行 / `p2p.js` 通信 / `app.js` 画面制御 / `scene.js`・`gl.js` 3D / `audio.js` 音 / `bots.js` 練習CPU
+## 開発
+
+- ゲーム本体はリポジトリ直下（`index.html`・`style.css`・各 `.js`）。そのまま GitHub Pages で配信されます
+- テスト：Node.js 22 以上で `npm test`（`dev/test/`）。テスト用サーバーは `dev/server.js`
+- 構成・作業メモは `CLAUDE.md`

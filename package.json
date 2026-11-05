@@ -1,0 +1,11 @@
+{
+  "name": "ghost-packet",
+  "private": true,
+  "description": "GHOST//PACKET — 3〜5人用ブラウザ対戦ブラフゲーム（GitHub Pages / P2P）",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node dev/test/engine.tests.js && node dev/test/room.extra.test.js && node dev/test/net.test.js && node dev/test/soak.test.js",
+    "test:quick": "node dev/test/engine.tests.js && node dev/test/room.extra.test.js",
+    "dev": "node dev/server.js"
+  }
+}
