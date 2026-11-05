@@ -31,7 +31,7 @@ export class Scene3D {
     this.canvas = canvas;
     this.scene = { meshes: [], sprites: [], particles: null, fog: [0.03, 0.022, 0.018], fogD: 120, light: [0.15, 1, 0.35] };
     this.t = 0; this.anims = []; this.seats = []; this.n = 0; this.me = 0; this.lost = false;
-    this.profile = 'pc'; this.fxScale = 1; this.labelScale = 1; this.yaw = 0; this.zoom = 1;
+    this.profile = 'pc'; this.fxScale = 1; this.labelScale = 1; this.yaw = 0; this.zoom = 1; this.pan = [0, 0];
     this.cam = { eye: [0, 22, 22], target: [0, 0, 1], fov: 0.72, maxDpr: 1.75 };
     this.camGoal = null; this.shakeAmt = 0; this.flashC = [0, 0, 0, 0];
     this.timerFrac = 0; this.timerUrgent = false; this.timerOn = false;
@@ -359,13 +359,25 @@ export class Scene3D {
   // 'pc' | 'land' | 'port' — lighter effects and bigger labels on phones
   setProfile(p) {
     this.profile = p; this.fxScale = p === 'pc' ? 1 : 0.6; this.labelScale = p === 'port' ? 1.45 : p === 'land' ? 1.15 : 1;
-    if (p !== 'pc') { this.yaw = 0; this.zoom = 1; }
+    if (p !== 'pc') { this.yaw = 0; this.zoom = 1; this.pan = [0, 0]; }
     for (const S of this.seats) { const b = S.i === this.me ? [4.2, 1.05] : [5.2, 1.3]; S.label.size = [b[0] * this.labelScale, b[1] * this.labelScale]; }
   }
   // PC: drag to turn the table, wheel to zoom, double-click to reset
   orbit(dx) { this.yaw = Math.max(-1.2, Math.min(1.2, this.yaw + dx)); }
-  zoomBy(k) { this.zoom = Math.max(0.7, Math.min(1.35, this.zoom * k)); }
-  resetView() { this.yaw = 0; this.zoom = 1; }
+  zoomBy(k) { const max = this.profile === 'pc' ? 1.6 : 2.6; this.zoom = Math.max(0.7, Math.min(max, this.zoom * k)); if (this.zoom <= 1.02) this.pan = this.pan.map(v => v * 0.85); }
+  // phones: drag (screen px) slides the view across the table while zoomed in
+  panBy(dx, dy) {
+    if (!this._camE || !this._tgtP) return;
+    const e = this._camE, t = this._tgtP, dist = Math.hypot(e[0] - t[0], e[1] - t[1], e[2] - t[2]);
+    const k = 2 * dist * Math.tan(this.cam.fov / 2) / Math.max(1, this.canvas.clientHeight);
+    const fx = t[0] - e[0], fz = t[2] - e[2], fl = Math.hypot(fx, fz) || 1, f = [fx / fl, fz / fl], r = [-f[1], f[0]];
+    const pitch = Math.max(0.35, Math.abs(Math.atan2(e[1] - t[1], Math.hypot(fx, fz))));
+    const wx = -dx * k, wz = dy * k / Math.sin(pitch);
+    let px = this.pan[0] + r[0] * wx + f[0] * wz, pz = this.pan[1] + r[1] * wx + f[1] * wz;
+    const lim = 9 * Math.min(1, (this.zoom - 0.95) / 0.8 + 0.2), l = Math.hypot(px, pz); if (l > lim) { px *= lim / l; pz *= lim / l; }
+    this.pan = [px, pz];
+  }
+  resetView() { this.yaw = 0; this.zoom = 1; this.pan = [0, 0]; }
   setTimer(frac, urgent, on) { this.timerFrac = frac; this.timerUrgent = urgent; this.timerOn = on; }
   _cupFrame(S, t, dt) {
     const C = S.cupSt; C.t += dt;
@@ -582,7 +594,7 @@ export class Scene3D {
   // world → screen (CSS px) for HUD overlays
   project(p) {
     const asp = this.canvas.clientWidth / this.canvas.clientHeight;
-    const VP = M4.mul(M4.persp(this.cam.fov, asp, 0.1, 200), M4.lookAt(this._camE || this.cam.eye, this._tgt || this.cam.target, [0, 1, 0]));
+    const VP = M4.mul(M4.persp(this.cam.fov, asp, 0.1, 200), M4.lookAt(this._camE || this.cam.eye, this._tgtP || this._tgt || this.cam.target, [0, 1, 0]));
     const x = VP[0] * p[0] + VP[4] * p[1] + VP[8] * p[2] + VP[12], y = VP[1] * p[0] + VP[5] * p[1] + VP[9] * p[2] + VP[13], w = VP[3] * p[0] + VP[7] * p[1] + VP[11] * p[2] + VP[15];
     return [(x / w * 0.5 + 0.5) * this.canvas.clientWidth, (1 - (y / w * 0.5 + 0.5)) * this.canvas.clientHeight, w > 0];
   }
@@ -611,11 +623,12 @@ export class Scene3D {
     // user orbit (PC): rotate the eye around the target and scale the distance
     if (this.demo.on) this.autoYaw = (this.autoYaw || 0) + dtR * 0.07;
     const yawAll = this.yaw + (this.autoYaw || 0);
-    const T = this._tgt, cy = Math.cos(yawAll), syw = Math.sin(yawAll), z = this.zoom;
-    const ex = this._eye[0] - T[0], ey = this._eye[1] - T[1], ez = this._eye[2] - T[2];
+    const pn = this.pan || [0, 0], T = [this._tgt[0] + pn[0], this._tgt[1], this._tgt[2] + pn[1]], cy = Math.cos(yawAll), syw = Math.sin(yawAll), z = this.zoom;
+    this._tgtP = T;
+    const ex = this._eye[0] - this._tgt[0], ey = this._eye[1] - this._tgt[1], ez = this._eye[2] - this._tgt[2];
     this._camE = [T[0] + (ex * cy + ez * syw) / z, T[1] + ey / z, T[2] + (-ex * syw + ez * cy) / z];
     this.cam.eye = this._camE.map((v, k) => v + (Math.random() - 0.5) * sh * (k === 1 ? 0.6 : 1));
-    this.cam.target = this._tgt.map((v) => v + (Math.random() - 0.5) * sh * 0.3);
+    this.cam.target = T.map((v) => v + (Math.random() - 0.5) * sh * 0.3);
     // flash decay
     this.flashC[3] *= Math.exp(-dtR * 7); this.r.flash = this.flashC;
     // anims

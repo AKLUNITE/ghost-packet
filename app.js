@@ -806,7 +806,8 @@ function renderSheet() {
 // ───────── overlays ─────────
 function splash(text, cls, sub, ms = 1300) {
   if (ST.calm) ms = Math.round(ms * 0.65);
-  const el = $('#splash'); el.innerHTML = `<div class="sp ${cls}" style="animation-duration:${ms}ms${cls === 'rain' ? `,1s` : ''}">${esc(text)}${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+  const n = Math.max(3, [...String(text)].reduce((w, ch) => w + (/[A-Z0-9]/.test(ch) ? 0.8 : /[\x20-\x7e]/.test(ch) ? 0.6 : 1.04), 0));   // text width in em, so it always fits the board
+  const el = $('#splash'); el.innerHTML = `<div class="sp ${cls}" style="--n:${n.toFixed(2)};animation-duration:${ms}ms${cls === 'rain' ? `,1s` : ''}">${esc(text)}${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
   clearTimeout(ST.splashT); ST.splashT = setTimeout(() => { el.innerHTML = ''; }, ms);
 }
 function flashBar() { if (ST.calm) return; const b = document.createElement('div'); b.className = 'flashbar'; document.body.appendChild(b); setTimeout(() => b.remove(), 950); }
@@ -818,7 +819,7 @@ function bubble(seat, text, stamp) {
   const b = { el, seat, until: performance.now() + 2800 }; ST.bubbles.push(b); placeBubble(b);
   setTimeout(() => { el.remove(); ST.bubbles = ST.bubbles.filter(x => x !== b); }, 2800);
 }
-function placeBubble(b) { const cr = $('#gl').getBoundingClientRect(), p0 = S3.project(S3.headWorld(b.seat)), p = [p0[0] + cr.left, p0[1] + cr.top]; const off = ST.bubbles.filter(x => x.seat === b.seat && x !== b && x.until > b.until).length; b.el.style.left = p[0] + 'px'; b.el.style.top = Math.max(cr.top + 44, p[1] - 8 - off * 30) + 'px'; b.el.style.left = Math.min(cr.right - 60, Math.max(cr.left + 60, p[0])) + 'px'; }
+function placeBubble(b) { const cr = $('#gl').getBoundingClientRect(), p0 = S3.project(S3.headWorld(b.seat)), p = [p0[0] + cr.left, p0[1] + cr.top]; const off = ST.bubbles.filter(x => x.seat === b.seat && x !== b && x.until > b.until).length; b.el.style.left = p[0] + 'px'; b.el.style.top = Math.max(cr.top + 44, p[1] - 8 - off * 30) + 'px'; const hw = (b.el.offsetWidth || 120) / 2 + 6; b.el.style.left = Math.min(cr.right - hw, Math.max(cr.left + hw, p[0])) + 'px'; }
 function modal(html, own) { const m = $('#modal'); m.className = 'modal' + (own ? ' paper' : ''); m.hidden = false; m.innerHTML = `<div class="glass">${html}${own ? '' : '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="go ghost" data-close>閉じる</button></div>'}</div>`; }
 const RULES = `<h2>遊び方</h2>
  <p>全員がライバルのハッカー。各自7個の不正パケットを、9ノード先の目的サーバーへ1個ずつ送り込みます。<b>先に3個届けた人が即勝利</b>。</p>
@@ -832,6 +833,7 @@ const RULES = `<h2>遊び方</h2>
 document.addEventListener('click', (e) => {
   A.init(); if (A.mode === 'stop' && (!ST.room || ST.room.phase === 'lobby')) A.setMode('lobby');
   if (e.target.id === 'sheetBack' || e.target.closest('[data-sheetclose]')) { closeSheet(); return; }
+  if (e.target.closest('#bZoom')) { if (S3) S3.resetView(); syncZoomChip(); return; }
   const t = e.target.closest('button'); if (!t) { if (e.target.id === 'modal') $('#modal').hidden = true; return; }
   const ds = t.dataset;
   if (ds.close != null) { $('#modal').hidden = true; return; }
@@ -946,7 +948,29 @@ document.addEventListener('pointerout', (e) => { if (e.pointerType !== 'mouse' |
   c.addEventListener('pointerup', () => { drag = null; });
   c.addEventListener('wheel', (e) => { if (ST.layout === 'pc' && S3) { e.preventDefault(); S3.zoomBy(e.deltaY > 0 ? 0.93 : 1.07); } }, { passive: false });
   c.addEventListener('dblclick', () => { if (S3) S3.resetView(); });
+  // touch: pinch to zoom the board, drag to slide it while zoomed, double-tap to reset
+  const pts = new Map(); let last = null, tapAt = 0;
+  const mid = () => { const a = [...pts.values()]; return a.length < 2 ? a[0] : { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) }; };
+  c.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || !S3) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); c.setPointerCapture(e.pointerId); last = mid();
+    if (pts.size === 1) { const t = performance.now(); if (t - tapAt < 300) { S3.resetView(); syncZoomChip(); } tapAt = t; }
+  });
+  c.addEventListener('pointermove', (e) => {
+    if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const m = mid(); if (!last || !m) return;
+    if (pts.size >= 2 && last.d) S3.zoomBy(m.d / last.d);
+    if (pts.size >= 2 || S3.zoom > 1.05) S3.panBy(m.x - last.x, m.y - last.y);
+    last = m; syncZoomChip();
+  });
+  for (const ev of ['pointerup', 'pointercancel']) c.addEventListener(ev, (e) => { pts.delete(e.pointerId); last = mid(); });
+  // keep iOS Safari from zooming the whole page instead
+  for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
 })();
+function syncZoomChip() {
+  const b = $('#bZoom'); if (!b || !S3) return;
+  b.hidden = ST.layout === 'pc' || !(S3.zoom > 1.03 || S3.zoom < 0.97 || Math.hypot(...S3.pan) > 0.3);
+}
 function keepTitle() { const nmv = $('#nm') && $('#nm').value, code = $('#code') && $('#code').value, open = $('.lookbox') && $('.lookbox').open; renderTitle(); if (nmv != null && $('#nm')) $('#nm').value = nmv; if (code != null && $('#code')) $('#code').value = code; if (open && $('.lookbox')) $('.lookbox').open = true; }
 function renderTitleKeepOpen() { const nmv = $('#nm') && $('#nm').value; renderTitle(); const d = $('.lookbox'); if (d) d.open = true; if (nmv != null && $('#nm')) $('#nm').value = nmv; }
 function saveName() {

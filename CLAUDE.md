@@ -38,6 +38,8 @@
 - 画面：`renderTitle / renderLobby / renderOver / lookPicker / avatarSvg / guide / openSheet / modal / RULES`
 - 入力：`// ───────── input` 以下（クリックは `data-*` 属性で振り分け、キー操作、長押しで出目を見る `peek`）
 - 毎フレーム：`frame`（タイマー・BGMの緊張度）
+- 盤面の操作：PCはドラッグで回転・ホイールで拡大。スマホはピンチで拡大、拡大中は1本指で移動、ダブルタップか「表示を戻す」で元に戻す（`S3.zoomBy / panBy / resetView`、`syncZoomChip`）
+- 演出文字 `splash`：文字数から幅を見積もって `--n` に入れ、盤面の幅（`cqw`）に収まる大きさにしている
 - デバッグ用：`window.__GP = { ST, S3, A, splash }`
 
 ### 通信メッセージ（クライアント → room.handle）
@@ -45,7 +47,7 @@
 サーバー → 各自に `sync`（`you, room, view, events[]`）。`events` が演出の元：`start turn rollfx declare pass doubtIn reveal passed goal cat confiscate over react say streak disc` など。
 
 ### style.css の注意
-上から「基本 → 端末別レイアウト → アナログ風の見た目 → 磨き込み → v3（読みやすさ・カップ） → v4（スマホの小さい操作パネル・ダウトカード・閉じられるシート）」の順に重ねている。**後に書いたブロックが前を上書きする**。直すときは既存ブロックを探して直すか、末尾の v3 ブロックに足す。`!important` は v3 の演出文字（`.sp`）など一部だけ。
+上から「基本 → 端末別レイアウト → アナログ風の見た目 → 磨き込み → v3（読みやすさ・カップ） → v4（スマホの小さい操作パネル・ダウトカード・閉じられるシート） → v5（はみ出し対策・ピンチ拡大）」の順に重ねている。**後に書いたブロックが前を上書きする**。直すときは既存ブロックを探して直すか、末尾の v3 ブロックに足す。`!important` は v3 の演出文字（`.sp`）など一部だけ。
 レイアウトは `body[data-layout]` = `pc` / `port`（スマホ縦）/ `land`（スマホ横）。
 
 ## テスト（Node 22）
@@ -59,6 +61,7 @@ N=1 node dev/test/soak.test.js   # soak を1局だけ
   - `node dev/tools/shots-roll.js <出力先>` …練習モードで手番の流れを PC・スマホ縦・スマホ横で撮影
   - `node dev/tools/shots-all.js <出力先>` …タイトル〜結果まで一通り撮影
   - `node dev/tools/shots-phone.js <出力先> [url] [390x620]` …iPhone Safari 相当の画面で、審議・自分のダウト（照合〜結果）・手番・メニューを撮影
+  - `node dev/tools/fit-audit.js <出力先> [url]` …7種類の画面サイズで練習を1局ずつ進め、画面外へのはみ出し・切れた文字・1文字ずつ折り返す文字を全部列挙（`SIZES=se,pc` で絞れる。全サイズだと10分超なので分けて実行）。**UIを直したら最後にこれで0件を確認**
   - `node dev/tools/e2e-p2p.js <出力先> http://localhost:8097/` …PeerJS を BroadcastChannel の偽物（`mockpeer.js`）に差し替え、ホスト＋参加者3人のタブで通しテスト（出目漏れ・再接続・ホスト退出）
 
 ## 作業環境のクセ（クラウド作業環境）

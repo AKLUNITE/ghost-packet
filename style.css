@@ -701,3 +701,27 @@ label{color:#c9dacf}
 .dmini .dscan{margin:0}
 [data-layout=land] .dm-p{font-size:13px;padding:4px 6px}[data-layout=land] .dm-v b{font-size:20px}
 .sheet .row .go.ghost{font-size:15px;padding:10px 6px;white-space:nowrap;letter-spacing:.02em}
+
+/* ═════ v5: everything fits; pinch zoom ═════ */
+#gl{touch-action:none}
+.zoomchip{position:fixed;z-index:3;right:calc(var(--glRight,0px) + 10px);top:calc(var(--glTop,0px) + 8px);background:var(--cream);color:var(--paperink);border:0;border-radius:999px;padding:6px 12px;font-weight:900;font-size:13px;box-shadow:0 2px 0 #a99877,0 4px 10px rgba(0,0,0,.4)}
+/* splash text is sized from its own length so it never runs off the board (cqw = width of the board area) */
+#splash{container-type:size}
+.sp:not(.rstamp){font-size:min(clamp(40px,min(9vw,13vh),118px),calc(84cqw / var(--n,6)),24cqh)!important}
+.sp.rstamp{font-size:min(clamp(36px,min(9vw,14vh),120px),calc(70cqw / var(--n,6)),26cqh)!important;max-width:92cqw;box-sizing:border-box}
+.sp small{white-space:normal;max-width:86cqw;margin-left:auto;margin-right:auto}
+.sp.rstamp small{font-size:max(13px,.3em)}
+.modal .glass{box-sizing:border-box}
+/* landscape: banner, one compact row of player chips, then the dock (scrolls if a very short screen needs it) */
+[data-layout=land] .hud{grid-template-rows:auto auto minmax(0,1fr)}
+[data-layout=land] .rail{grid-row:2;display:grid!important;grid-template-columns:repeat(var(--n,5),minmax(0,1fr));gap:4px;overflow:visible;max-height:none}
+[data-layout=land] .rail .pchip{min-width:0;padding:3px 5px;flex-direction:column;align-items:stretch;gap:0}
+[data-layout=land] .rail .pchip .row1{min-width:0;overflow:hidden;white-space:nowrap}
+[data-layout=land] .rail .pchip .n{overflow:hidden;text-overflow:ellipsis;min-width:0}
+[data-layout=land] .dock{grid-row:3;align-self:end;max-height:100%;min-height:0;box-sizing:border-box}
+[data-layout=land] .pchip{min-width:0;flex-direction:column;align-items:stretch;gap:0;padding:3px 5px;border-radius:7px;position:relative}
+[data-layout=land] .pchip .row1{display:flex;align-items:center;gap:3px;min-width:0}
+[data-layout=land] .pchip .n{max-width:none;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px}
+[data-layout=land] .pchip .s{font-size:14px;line-height:1;text-align:left}
+[data-layout=land] .pchip .m{position:absolute;right:2px;bottom:2px;font-size:8.5px;padding:0 3px}
+[data-layout=land] .pchip .m.x{bottom:auto;top:-6px}
