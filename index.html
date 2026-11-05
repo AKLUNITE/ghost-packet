@@ -582,6 +582,71 @@ input[type=text]{background:#0b1512;border:0;box-shadow:inset 0 2px 4px rgba(0,0
 .sheet .opt{border-top-color:var(--keyline)}
 
 @media (prefers-reduced-motion:reduce){.sp,.bDoubt,.timer.hurry,.tier.t4,.tier.tx,.bub{animation-duration:.01s!important;animation-iteration-count:1!important}}
+
+/* ═════ v3: readability + rolling the cup ═════ */
+:root{--mute:#b1c6ba}
+.small{font-size:13px;line-height:1.5}
+[data-layout=land] .small{font-size:12px}
+.seg button{color:#d3e2d9}
+label{color:#c9dacf}
+.decl button.tile small{font-size:12px;color:#5d4f3b;font-weight:800}
+/* splashes: a solid ribbon behind clean, single-colour type (no see-through gradients over the busy table) */
+.sp:not(.rstamp){display:block;width:100%;box-sizing:border-box;padding:.14em .3em .2em;font-family:var(--f-old);font-weight:900;font-size:clamp(40px,min(9vw,13vh),118px);letter-spacing:.06em;
+  background:linear-gradient(90deg,rgba(10,7,4,0),rgba(10,7,4,.9) 16%,rgba(10,7,4,.9) 84%,rgba(10,7,4,0))!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;
+  -webkit-text-stroke:0!important;text-shadow:0 3px 0 rgba(0,0,0,.65)!important;color:#ffd35c;position:relative;
+  animation:ribbon 1.3s cubic-bezier(.2,1,.3,1) forwards!important}
+.sp:not(.rstamp)::before,.sp:not(.rstamp)::after{content:"";position:absolute;left:14%;right:14%;height:2px;background:currentColor;opacity:.75}
+.sp:not(.rstamp)::before{top:0}.sp:not(.rstamp)::after{bottom:0}
+.sp:not(.rstamp) small{font-family:var(--f-body);font-weight:900;font-size:.3em;letter-spacing:.14em;color:#f3ead6;margin-top:.25em;text-shadow:0 2px 0 rgba(0,0,0,.6)}
+.sp.gold:not(.rstamp),.sp.rain:not(.rstamp){color:#ffd35c}
+.sp.rain:not(.rstamp)::before,.sp.rain:not(.rstamp)::after{background:linear-gradient(90deg,#fff36b,#ff6ad5,#6ad6ff,#9dff6a);opacity:1;height:3px}
+.sp.white:not(.rstamp){color:#fbf6ea}.sp.cyan:not(.rstamp){color:#9be8ff}.sp.mint:not(.rstamp){color:#6dffb8}.sp.red:not(.rstamp){color:#ff5d76}
+@keyframes ribbon{0%{opacity:0;transform:scaleY(.2);letter-spacing:.4em}12%{opacity:1;transform:scaleY(1.06);letter-spacing:.08em}22%{transform:scaleY(1);letter-spacing:.06em}82%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}
+/* dock prompts */
+.rollrow{gap:14px;align-items:center}
+.rolltx{flex:1;min-width:0}
+.rolltx .big{font-size:22px;color:#fbf3df}
+.rolltx .small{margin-top:3px}
+.waitline{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#f3ead6}
+.waitline .dots{display:inline-flex;gap:3px;margin-left:2px}.waitline .dots i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.3;animation:dotb 1.2s infinite}
+.waitline .dots i:nth-child(2){animation-delay:.2s}.waitline .dots i:nth-child(3){animation-delay:.4s}
+@keyframes dotb{40%{opacity:1;transform:translateY(-3px)}}
+.minicup{width:18px;height:20px;flex:none;background:linear-gradient(90deg,#3a2413,#8a5a34,#2a1a10);clip-path:polygon(18% 0,82% 0,100% 100%,0 100%);animation:miniShake .11s linear infinite}
+@keyframes miniShake{0%{transform:translate(-2px,-1px) rotate(-12deg)}50%{transform:translate(2px,-3px) rotate(12deg)}100%{transform:translate(-2px,-1px) rotate(-12deg)}}
+/* the cup itself */
+.cupbox[data-roll]{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;outline:none}
+.cupbox.ready{box-shadow:0 0 0 2px rgba(255,211,92,.9),0 0 22px rgba(255,190,60,.45),inset 0 0 30px rgba(0,0,0,.6);animation:readyGlow 1.4s ease-in-out infinite}
+.cupbox.ready .cup{animation:cupReady 1.4s ease-in-out infinite}
+.cupbox.ready:hover .cup{animation-duration:.7s}
+@keyframes readyGlow{50%{box-shadow:0 0 0 2px rgba(255,211,92,.5),0 0 34px rgba(255,190,60,.7),inset 0 0 30px rgba(0,0,0,.6)}}
+@keyframes cupReady{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-5px) rotate(-3deg)}60%{transform:translateY(-2px) rotate(3deg)}}
+.cupbox .cuplbl.go{top:auto;bottom:16px;left:50%;right:auto;transform:translateX(-50%);background:#ffd35c;color:#2b1a05;text-shadow:none;border-radius:999px;padding:3px 9px;font-size:11px;white-space:nowrap;box-shadow:0 2px 0 #8a5a00;z-index:3}
+.cupbox .cuplbl.go br{display:none}
+.cupbox .cuplbl.go .kbd{display:none}
+.cupbox.shake{cursor:grabbing;animation:boxBuzz .09s linear infinite}
+.cupbox.shake .cup{animation:cupShake2 .1s linear infinite}
+@keyframes cupShake2{0%{transform:translate(-7px,-16px) rotate(-11deg)}25%{transform:translate(6px,-22px) rotate(9deg)}50%{transform:translate(8px,-14px) rotate(12deg)}75%{transform:translate(-6px,-21px) rotate(-8deg)}100%{transform:translate(-7px,-16px) rotate(-11deg)}}
+@keyframes boxBuzz{50%{transform:translate(1px,-1px)}}
+.cupbox.slam{animation:boxThud .3s ease-out}
+.cupbox.slam .cup{animation:cupSlam .26s cubic-bezier(.5,0,.8,.4) both}
+@keyframes cupSlam{0%{transform:translateY(-26px) rotate(-6deg)}70%{transform:translateY(2px) scale(1.06,.9)}100%{transform:none}}
+@keyframes boxThud{30%{transform:translateY(3px) scale(1.02)}}
+.cupbox.slam.open .cup{animation:none;transform:translate(48px,-78px) rotate(28deg);transition:transform .45s cubic-bezier(.3,1.4,.5,1)}
+.cupbox.slam.open .die{animation:dieTumble .55s cubic-bezier(.25,1.5,.5,1) both}
+@keyframes dieTumble{0%{transform:translate(-10px,-18px) rotate(-260deg) scale(.55)}55%{transform:translate(2px,2px) rotate(12deg) scale(1.08)}78%{transform:rotate(-5deg) scale(.97)}100%{transform:none}}
+.tier.fresh{animation:tierPop .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes tierPop{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}
+.tier.t4.fresh{animation:tierPop .5s cubic-bezier(.2,1.6,.4,1) both,rainbow 1.2s linear infinite}
+/* number tiles */
+.decl.locked button.tile{opacity:.42;filter:saturate(.3);transform:none!important;cursor:default}
+.decl.fresh button.tile{animation:tileIn .38s cubic-bezier(.2,1.5,.4,1) backwards}
+.decl.fresh button.tile:nth-child(2){animation-delay:.05s}.decl.fresh button.tile:nth-child(3){animation-delay:.1s}.decl.fresh button.tile:nth-child(4){animation-delay:.15s}
+@keyframes tileIn{from{transform:translateY(14px) scale(.9);opacity:0}}
+.decl button.tile.sel{transform:translateY(-6px)!important;box-shadow:0 0 0 3px #ffd35c,0 8px 0 #8a6a2a,0 12px 22px rgba(0,0,0,.5)!important}
+.decl button.tile.sel small{color:#8a5a00}
+[data-layout=land] #dock{width:100%;box-sizing:border-box}
+[data-layout=port] .rolltx .big{font-size:19px}
+@media (prefers-reduced-motion:reduce){.cupbox.shake,.cupbox.shake .cup,.cupbox.ready,.cupbox.ready .cup,.minicup{animation-duration:.4s!important}}
 </style>
 </head>
 <body>

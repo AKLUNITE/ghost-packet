@@ -140,6 +140,14 @@ export class Audio {
       case 'cut': noise(0.08, 0.3, 'highpass', 3000); break;
       // physical table sounds
       case 'cup': for (let i = 0; i < 3; i++) { noise(0.03, 0.22 + Math.random() * 0.1, 'bandpass', 2200 + Math.random() * 1800, i * 0.035 + Math.random() * 0.02, 6); tone('triangle', 900 + Math.random() * 600, 0.03, 0.05, i * 0.035); } break;
+      // dice rattling inside a leather cup: k = shake intensity 0..1, g = loudness (others' cups are quieter)
+      case 'rattle': { const k = o.k == null ? 0.6 : o.k, g = o.g == null ? 1 : o.g, n = 2 + Math.round(k * 3);
+        for (let i = 0; i < n; i++) { const at = i * (0.018 + Math.random() * 0.03); noise(0.02 + Math.random() * 0.015, (0.18 + k * 0.22) * g, 'bandpass', 2600 + Math.random() * 2600, at, 7); tone('triangle', 1100 + Math.random() * 900, 0.02, 0.035 * g, at); }
+        noise(0.06, 0.12 * g * (0.5 + k), 'lowpass', 420); break; }
+      // cup slammed onto the felt: thud, then the die settles with a few quick clicks
+      case 'slam': { const g = o.g == null ? 1 : o.g; tone('sine', 120, 0.22, 0.75 * g, 0, 48); noise(0.12, 0.55 * g, 'lowpass', 600); noise(0.05, 0.3 * g, 'bandpass', 1800, 0.005, 3);
+        [0.07, 0.13, 0.17, 0.2].forEach((at, i) => noise(0.015, (0.22 - i * 0.045) * g, 'bandpass', 3400 + Math.random() * 1200, at, 8)); break; }
+      case 'lift': noise(0.25, 0.12, 'bandpass', 900, 0, 1.2); tone('sine', 520, 0.12, 0.08, 0.05, 880); break;
       case 'thunk': tone('sine', 140, 0.18, 0.5, 0, 60); noise(0.09, 0.4, 'lowpass', 700); noise(0.04, 0.2, 'bandpass', 2600, 0.01, 4); break;
       case 'clack': noise(0.035, 0.45, 'bandpass', 3200, 0, 5); tone('triangle', 1700, 0.04, 0.12); tone('sine', 420, 0.06, 0.2, 0.005, 300); break;
       case 'slap': noise(0.09, 0.55, 'bandpass', 1400, 0, 1.2); noise(0.05, 0.3, 'highpass', 4000, 0.004); tone('sine', 180, 0.08, 0.25, 0, 90); break;

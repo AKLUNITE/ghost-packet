@@ -52,6 +52,9 @@ export class Scene3D {
       torusL: this.r.mesh(Geo.torus(3.35, 0.05, 96, 8)),
       plane: this.r.mesh(Geo.plane(1, 1)),
       node: this.r.mesh(Geo.lathe([[0.42, 0], [0.42, 0.1], [0.22, 0.12], [0, 0.12]], 20)),
+      // leather dice cup, mouth down on the table
+      cup: this.r.mesh(Geo.lathe([[0.001, 0.04], [0.7, 0.04], [0.74, 0.1], [0.7, 0.24], [0.56, 1.42], [0.6, 1.5], [0.5, 1.56], [0.001, 1.56]], 28)),
+      cupBand: this.r.mesh(Geo.torus(0.69, 0.07, 32, 6)),
     };
     this._buildRoom();
   }
@@ -196,9 +199,15 @@ export class Scene3D {
     // name label
     const label = keep(this.spr({ tex: this._label(pl.name, colHex, this.sym[i], pl.bot), size: [5.2, 1.3], color: [1, 1, 1, 1], depthTest: false, ownTex: true }));
     label.pos = [x, 5.1, z];
+    // dice cup: sits on the table in front of the player while it is their turn
+    const ca = a - (isMe ? 0.24 : 0.25), cr = isMe ? 12.1 : 12.0;
+    const cup = keep(this.obj(this.geo.cup, { tint: [0.42, 0.25, 0.13, 1], emi: [0.02, 0.01, 0] }));
+    const cupBand = keep(this.obj(this.geo.cupBand, { tint: [...col.map(v => v * 0.7 + 0.2), 1], emi: col.map(v => v * 0.35) }));
+    cup.visible = cupBand.visible = false;
+    const cupSt = { st: 'off', x: Math.cos(ca) * cr, z: Math.sin(ca) * cr, k: 0, y: 0, t: 0, lift: 0 };
     if (isMe) { for (const o of [ob, glowOb, eyeOb, armOb, halo]) o.visible = false; shadow.visible = false; label.pos = [Math.cos(a) * 13.9, 0.4, Math.sin(a) * 13.9]; label.size = [4.2, 1.05]; }
     label.size = label.size.map(v => v * this.labelScale);
-    return { i, a, x, z, face, col, colHex, stack, reserve: 6, body: ob, glow: glowOb, eyes: eyeOb, arms: armOb, halo, pk, pkGlow, pkShadow, label, pos: 0, shown: 0, vis: true, status: 'idle', bob: Math.random() * 6, mood: null, moodT: 0, scale: 1, R: {} };
+    return { i, a, x, z, face, col, colHex, stack, reserve: 6, body: ob, glow: glowOb, eyes: eyeOb, arms: armOb, halo, pk, pkGlow, pkShadow, label, cup, cupBand, cupSt, pos: 0, shown: 0, vis: true, status: 'idle', bob: Math.random() * 6, mood: null, moodT: 0, scale: 1, R: {} };
   }
 
   // cosmetic avatar: cloak + hood + glowing trim, laptop, arms, and one of 8 accessory styles
@@ -333,7 +342,19 @@ export class Scene3D {
     if (jump || !S.vis) { S.shown = pos; S.vis = true; S.pos = pos; S.scale = 0.01; this.anim(0.35, (t) => { S.scale = ease(t); }); return; }
     S.pos = pos;
   }
+  // declare preview: light up the n nodes the packet would travel (n = null clears)
+  preview(i, n) {
+    if (!n) { this.pv = null; if (this.pvMark) this.pvMark.color[3] = 0; return; }
+    if (!this.pvMark || !this.scene.sprites.includes(this.pvMark)) this.pvMark = this.spr({ mode: 2, color: [1, 0.85, 0.35, 0], size: [2.2, 2.2], add: true, glow: 1.4, depthTest: false });
+    this.pv = { i, n };
+  }
   setStatus(i, st) { const S = this.seats[i]; if (S) S.status = st; }
+  // dice cup: 'off' | 'wait' (upright, waiting to be shaken) | 'shake' | 'down' (slammed, roll hidden) | 'lift' (revealed)
+  setCup(i, st, quiet) {
+    const S = this.seats[i]; if (!S || !S.cupSt) return; const C = S.cupSt; if (C.st === st) return;
+    const prev = C.st; C.st = st; C.t = 0;
+    if (st === 'down' && prev === 'shake' && !quiet) C.slam = 0.0001;   // drop animation + dust on contact
+  }
   setReserve(i, n) { const S = this.seats[i]; if (S) S.reserve = n; }
   // 'pc' | 'land' | 'port' — lighter effects and bigger labels on phones
   setProfile(p) {
@@ -346,6 +367,29 @@ export class Scene3D {
   zoomBy(k) { this.zoom = Math.max(0.7, Math.min(1.35, this.zoom * k)); }
   resetView() { this.yaw = 0; this.zoom = 1; }
   setTimer(frac, urgent, on) { this.timerFrac = frac; this.timerUrgent = urgent; this.timerOn = on; }
+  _cupFrame(S, t, dt) {
+    const C = S.cupSt; C.t += dt;
+    const on = C.st !== 'off'; C.k += ((on ? 1 : 0) - C.k) * Math.min(1, dt * 9);
+    const vis = C.k > 0.02; S.cup.visible = S.cupBand.visible = vis; if (!vis) return;
+    let y = 0, rx = 0, rz = 0, ry = t * 0.2, ox = 0, oz = 0, sq = 1;
+    if (C.st === 'wait') { y = Math.max(0, Math.sin(t * 3.2)) * 0.12; rz = Math.sin(t * 3.2) * 0.04; }
+    if (C.st === 'shake') {
+      const e = Math.min(1, C.t * 4); y = (2.2 + Math.sin(t * 29) * 0.3) * e;
+      rx = Math.sin(t * 37) * 0.32 * e; rz = Math.cos(t * 31) * 0.32 * e; ox = Math.sin(t * 23) * 0.18 * e; oz = Math.cos(t * 27) * 0.18 * e;
+      if (Math.random() < dt * 14) this.scene.particles.emit({ p: [C.x + ox, 0.3 + y * 0.5, C.z + oz], v: [(Math.random() - 0.5) * 2, 1.5, (Math.random() - 0.5) * 2], c: [1, 0.9, 0.7, 0.25], s: 0.08, life: 0.4, g: -3, drag: 1, fade: 1 });
+    }
+    if (C.st === 'down') {
+      if (C.slam) { // falls from the shaking height, squashes, kicks up dust
+        C.slam += dt; const f = Math.min(1, C.slam / 0.12); y = 2.2 * (1 - f * f);
+        if (f >= 1) { C.slam = 0; this.shake(0.28); this.burst([C.x, 0.12, C.z], { n: 26, colors: ['#e8d6b0', '#ffffff', S.colHex], speed: 4, size: 0.18, life: 0.5, g: -2, spread: 1.2 }); this.shockwave([C.x, 0.02, C.z], S.colHex, 3.2, 0.45); C.squash = 0.0001; }
+      }
+      if (C.squash) { C.squash += dt; const p = Math.min(1, C.squash / 0.3); sq = 1 - Math.sin(p * Math.PI) * 0.16 * (1 - p); if (p >= 1) C.squash = 0; }
+    }
+    if (C.st === 'lift') { const e = Math.min(1, C.t / 0.5), k = 1 - Math.pow(1 - e, 3); y = k * 1.6; rz = k * 1.1; ox = k * 0.6; }
+    const s = C.k * 1.45;
+    const M = M4.compose(S.cup.m, C.x + ox, y, C.z + oz, rx, ry, rz, s, s * sq, s);
+    M4.compose(S.cupBand.m, 0, 0.3, 0); S.cupBand.m = M4.mul(M, S.cupBand.m);
+  }
   setMood(i, mood, sec = 2.5) { const S = this.seats[i]; if (S) { S.mood = mood; S.moodT = sec; } }
 
   // body language: pass = nod, doubt = lean in & point, cat = slump, mis = head shake, goal = jump & spin, win = celebrate, hop = small bounce
@@ -596,7 +640,15 @@ export class Scene3D {
       if (S.stack) S.stack.forEach((o, k) => { o.visible = k < (S.reserve ?? 0); });
       // lane nodes: passed nodes glow in the owner's colour
       const row = this.nodes && this.nodes[S.i];
-      if (row) { const lit = S.vis ? Math.floor(S.shown + 0.001) : 0; row.forEach((o, k) => { const on = k + 1 <= lit; o.tint = on ? [...S.col.map(v => v * 0.6 + 0.4), 1] : [0.85, 0.68, 0.33, 1]; o.emi = on ? S.col.map(v => v * 0.9) : [0.05, 0.04, 0.02]; }); }
+      if (row) {
+        const lit = S.vis ? Math.floor(S.shown + 0.001) : 0, pv = this.pv && this.pv.i === S.i ? this.pv : null, pulse = 0.65 + Math.sin(t * 9) * 0.35;
+        row.forEach((o, k) => {
+          const on = k + 1 <= lit, ahead = pv && k + 1 > lit && k + 1 <= lit + pv.n;
+          o.tint = on ? [...S.col.map(v => v * 0.6 + 0.4), 1] : ahead ? [1, 0.93, 0.7, 1] : [0.85, 0.68, 0.33, 1];
+          o.emi = on ? S.col.map(v => v * 0.9) : ahead ? [1.1 * pulse, 0.8 * pulse, 0.25 * pulse] : [0.05, 0.04, 0.02];
+        });
+        if (pv && this.pvMark) { const dest = Math.min(9, lit + pv.n), [px, , pz] = this.nodePos(S.i, dest); this.pvMark.pos = [px, dest >= 9 ? 1.6 : 0.25, pz]; this.pvMark.color = [1, 0.85, 0.35, 0.55 + Math.sin(t * 9) * 0.25]; const z = dest >= 9 ? 4.2 : 2.2; this.pvMark.size = [z, z]; }
+      }
       // halo
       const STC = { turn: [1, 0.8, 0.25], pass: [0.3, 1, 0.6], doubt: [1, 0.15, 0.2], think: [0.5, 0.6, 0.6], idle: [0.12, 0.14, 0.13], out: [0.05, 0.05, 0.05] };
       const hc = STC[S.status] || STC.idle, pulse = S.status === 'turn' || S.status === 'doubt' ? 0.7 + Math.sin(t * 7) * 0.3 : 1;
@@ -618,12 +670,14 @@ export class Scene3D {
         if (p >= 1) delete S.R[k];
       }
       if (S.status === 'turn') { by += 0.22; arm += Math.sin(t * 16) * 0.05; }
+      if (S.cupSt && S.cupSt.st === 'shake') { arm = -0.95 + Math.sin(t * 34) * 0.22; by += 0.12 + Math.abs(Math.sin(t * 17)) * 0.08; lean += 0.12; }
       if (S.status === 'out') { by -= 0.25; lean += 0.12; }
       const M = M4.compose(S.body.m, S.x, by, S.z, lean, S.face + turnY, 0, 1.3);
       S.glow.m = M; S.eyes.m = M;
       S.glow.emi = S.status === 'turn' ? [0.25, 0.25, 0.25] : [0, 0, 0];
       S.arms.m = M4.mul(M, M4.mul(M4.compose(M4.ident(), 0, 0.42, 0.35, arm), M4.compose(M4.ident(), 0, -0.42, -0.35)));
       M4.compose(S.halo.m, S.x, 4.15 + by + Math.sin(t * 2 + S.bob) * 0.06, S.z, 0.25 * Math.sin(t + S.bob), t * 0.8, 0.2, 1);
+      this._cupFrame(S, t, dtR);
     }
     // NEXT marker + turn spotlight
     if (this.nextMark) {

@@ -27,7 +27,7 @@ const ST = {
   t: null, mode: null, sync: null, you: null, room: null, view: null,
   name: (store.get('gp.name') || ''), cfg: { n: 5, sec: 40 }, online: false,
   deadline: 0, frozen: false, fxQ: [], fxBusy: false, stake: null, logs: [],
-  setupKey: '', spin: { active: false, seq: -1 }, turnSeq: 0, lastTickSec: null, bubbles: [], overShown: false, reviewKey: null, doubtShown: null,
+  setupKey: '', roll: { id: -1, st: 'done' }, pick: null, turnSeq: 0, lastTickSec: null, bubbles: [], overShown: false, reviewKey: null, doubtShown: null,
   layout: 'pc', peeking: false, peekedSeq: -1, sheet: null,
 };
 const COARSE = matchMedia('(pointer: coarse)').matches;
@@ -205,13 +205,21 @@ async function fx(e) {
       ST.turnSeq++; ST.peeking = false; hideDuel(); if (S3) S3.clearTarget(); endSuspense();
       log(`— 手番：<span class="k" style="color:${col(e.seat)}">${nm(e.seat)}</span>`);
       if (ok) S3.focus(e.seat, 1.0);
-      if (e.seat === me()) { A.sfx('myturn'); vib([30, 50, 30]); splash('YOUR TURN', 'rain', 'あなたの手番', 1100); startSpin(); }
+      ST.pick = null; otherRattle(false); if (S3) S3.preview(null);
+      if (e.seat === me()) { A.sfx('myturn'); vib([30, 50, 30]); splash('YOUR TURN', 'gold', 'カップを振ってください', 1100); beginRoll(); }
       else A.sfx('turn');
       return 300;
     }
     case 'skip': log('送信不能のため手番を飛ばした'); return 0;
     case 'skipDisc': log(`${nm(e.seat)} は切断中のため手番をスキップ（ホスト操作）`); return 0;
+    case 'rollfx': {
+      if (e.seat === me()) return 0;
+      if (e.s === 'shake') otherRattle(true);
+      else { otherRattle(false); A.sfx('slam', { g: 0.55 }); }
+      renderStatus(); renderDock(); renderBanner(); return 0;
+    }
     case 'declare': {
+      otherRattle(false); ST.pick = null; if (S3) S3.preview(null);
       log(`${nm(e.seat)} が <b class="k">${e.value}</b> ノードを申告`);
       if (ok) S3.fxDeclare(e.seat, e.value); A.sfx('declare', { v: e.value }); A.sfx('clack');
       splash(String(e.value), e.value === 4 ? 'rain' : 'white', `${P(e.seat) ? P(e.seat).name : ''} の申告`, 1100);
@@ -343,33 +351,87 @@ function dieHtml(v, small) {
 }
 function cupHtml(state, roll, peekable) {
   // state: 'shake' | 'down' | 'up'
-  const lbl = state === 'shake' ? '' : state === 'down' ? `<div class="cuplbl">${COARSE ? '長押しで<br>のぞく' : '押している間<br>のぞく<span class="kbd">Space</span>'}</div>` : '';
-  return `<div class="cupbox ${state}" id="cupbox" ${peekable ? 'data-peek' : ''}>
-    <div class="felt">${state === 'shake' ? '' : dieHtml(roll)}</div>
+  // state: 'ready' | 'shake' | 'slam' | 'down' | 'up'
+  const lbl = state === 'ready' ? `<div class="cuplbl go">${COARSE ? '長押しで<br>振る' : '長押しで<br>振る<span class="kbd">Space</span>'}</div>`
+    : state === 'down' ? `<div class="cuplbl">${COARSE ? '長押しで<br>のぞく' : '押している間<br>のぞく<span class="kbd">Space</span>'}</div>` : '';
+  const attr = state === 'ready' || state === 'shake' ? 'data-roll role="button" tabindex="0" aria-label="カップを振る"' : peekable ? 'data-peek' : '';
+  return `<div class="cupbox ${state}" id="cupbox" ${attr}>
+    <div class="felt">${state === 'shake' || state === 'ready' ? '' : dieHtml(roll)}</div>
     <svg class="cup" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="cupg" x1="0" x2="1"><stop offset="0" stop-color="#2a1a10"/><stop offset=".45" stop-color="#6b4325"/><stop offset=".6" stop-color="#7c5130"/><stop offset="1" stop-color="#24150c"/></linearGradient></defs>
       <path d="M22 112 L32 14 Q60 4 88 14 L98 112 Z" fill="url(#cupg)" stroke="#140b05" stroke-width="3"/>
+      <path d="M33 22 Q38 60 34 104" stroke="#f0d29a" stroke-width="4" stroke-linecap="round" opacity=".18" fill="none"/>
       <path d="M26 98 Q60 106 94 98" fill="none" stroke="#d9b46a" stroke-width="3" opacity=".7"/>
       <path d="M30 30 Q60 38 90 30" fill="none" stroke="#d9b46a" stroke-width="2" opacity=".5"/>
       <text x="60" y="70" text-anchor="middle" font-family="DotGothic16,monospace" font-size="15" fill="#e8d3a6" opacity=".8">G//P</text></svg>
     ${lbl}<div class="lbl">PRIVATE</div></div>`;
 }
-function startSpin() {
-  ST.spin = { active: true, seq: ST.turnSeq, t0: performance.now() };
-  renderDock();
-  const roll = ST.view && ST.view.myRoll;
-  if (roll === undefined) { ST.spin.active = false; renderDock(); return; }
-  const guard = ST.guard;
-  for (let k = 0; k < 7; k++) setTimeout(() => A.sfx('cup'), k * 170);
-  vib([15, 60, 15, 60, 15]);
-  setTimeout(() => {
-    if (ST.spin.seq !== ST.turnSeq) return;
-    ST.spin.active = false; A.sfx('thunk');
-    if (guard) { renderDock(); return; } // fanfares would give the roll away to anyone nearby
-    if (roll === 'X') { A.sfx('xroll'); if (S3) { S3.flash('#ff2a3a', 0.25); S3.shake(0.4); } }
-    else { A.sfx('rare', { tier: roll }); if (roll === 4 && S3) { S3.flash('#ffcf4a', 0.3); S3.burst([0, 2, 6], { n: 120, colors: ['#ffe08a', '#ffffff', '#ffb347'], speed: 10, up: true }); } }
-    renderDock();
-  }, 1300);
+// ───────── rolling: the player shakes and slams their own cup ─────────
+// The roll was already made by the host at turn start; shaking only decides when you look (cosmetic, no rule change).
+// States: ready → shake (held) → land (minimum shake time) → reveal (slam + lift) → done
+const rollBusy = () => ['shake', 'land', 'reveal'].includes(ST.roll.st);
+// keyed by the room's turn id, so a fresh view never shows a stale "already rolled" state
+const turnId = () => (ST.room && ST.room.turnId) || 0;
+function syncRoll() {
+  const v = ST.view, r = ST.room;
+  if (!v || v.over || v.phase !== 'declare' || v.turn !== me()) return false;
+  if (ST.roll.id !== turnId()) ST.roll = { id: turnId(), st: r.rollSt === 'done' || v.myRoll === undefined ? 'done' : 'ready' };
+  return true;
 }
+function myRollPending() { return syncRoll() && ST.roll.st !== 'done'; }
+function beginRoll() { syncRoll(); renderStatus(); renderDock(); renderBanner(); }
+let rattleT = null;
+function rattleLoop(on, g) {
+  clearTimeout(rattleT); rattleT = null; if (!on) return;
+  const t0 = performance.now();
+  const step = () => { const k = Math.min(1, (performance.now() - t0) / 1200); A.sfx('rattle', { k: 0.35 + k * 0.65, g }); rattleT = setTimeout(step, 150 - k * 70 + Math.random() * 40); };
+  step();
+}
+function otherRattle(on) { if (on && ST.calm) return; ST.otherRattle = on; rattleLoop(on, 0.45); }
+function shakeStart(src) {
+  if (!myRollPending() || ST.roll.st !== 'ready') return;
+  Object.assign(ST.roll, { st: 'shake', t0: performance.now(), src, tap: false });
+  send({ t: 'roll', s: 'shake' });
+  rattleLoop(true, 1); vib([12, 40, 12, 40, 12, 40, 12]);
+  ST.roll.vibT = setInterval(() => vib([10, 30, 10]), 260);
+  ST.roll.maxT = setTimeout(() => shakeEnd(), 2400);   // the cup is put down by itself after a while
+  renderStatus(); renderDock();
+}
+function shakeEnd(tap) {
+  if (ST.roll.st !== 'shake') return;
+  clearTimeout(ST.roll.maxT);
+  const held = performance.now() - ST.roll.t0, min = tap || held < 220 ? 850 : 520;
+  ST.roll.st = 'land';
+  const id = ST.roll.id; setTimeout(() => { if (ST.roll.id === id) land(); }, Math.max(0, min - held));
+}
+function land() {
+  if (ST.roll.st !== 'land') return;
+  const seq = ST.roll.id, roll = ST.view && ST.view.myRoll, guard = ST.guard;
+  rattleLoop(false); clearInterval(ST.roll.vibT); A.sfx('slam'); vib(45);
+  send({ t: 'roll', s: 'done' });
+  ST.roll.st = 'reveal'; renderStatus(); renderDock();
+  if (S3) S3.shake(0.22);
+  setTimeout(() => {
+    if (ST.roll.id !== seq) return;
+    const cb = $('#cupbox'); if (!guard && cb) { cb.classList.add('open'); A.sfx('lift'); }
+    setTimeout(() => {
+      if (ST.roll.id !== seq) return;
+      ST.roll.st = 'done'; ST.roll.fresh = true;
+      if (!guard) { // fanfares would give the roll away to anyone nearby
+        if (roll === 'X') { A.sfx('xroll'); if (S3) { S3.flash('#ff2a3a', 0.25); S3.shake(0.4); } }
+        else { A.sfx('rare', { tier: roll }); if (roll === 4 && S3) { S3.flash('#ffcf4a', 0.3); S3.burst([0, 2, 6], { n: 120, colors: ['#ffe08a', '#ffffff', '#ffb347'], speed: 10, up: true }); } }
+      }
+      renderDock(); renderBanner(); renderStatus(); ST.roll.fresh = false;
+    }, guard ? 120 : 560);
+  }, 300);
+}
+// Android etc.: shaking the phone itself shakes the cup (iOS would need a permission prompt, so it is not used there)
+const MOTION = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission !== 'function' && COARSE;
+if (MOTION) addEventListener('devicemotion', (e) => {
+  const a = e.acceleration; if (!a || a.x == null) return; ST.motionOK = true;
+  const g = Math.hypot(a.x, a.y, a.z);
+  if (g > 15 && ST.roll.st === 'ready' && myRollPending()) shakeStart('motion');
+  if (ST.roll.src === 'motion' && ST.roll.st === 'shake') { if (g > 7) ST.roll.lastMove = performance.now(); else if (performance.now() - (ST.roll.lastMove || ST.roll.t0) > 380) shakeEnd(); }
+});
 const symColor = (v) => v === 'X' ? '#ff2f5b' : ['#cfd8dc', '#7fe3ff', '#ffd34d', '#ff6ad5'][v - 1];
 const tierText = (v) => v === 'X' ? ['TRANSFER DENIED', 'tx', '転送不能。何を言っても嘘になる（強制ブラフ）'] : v === 4 ? ['MAX BANDWIDTH!!', 't4', '最大転送枠'] : v === 3 ? ['HIGH BANDWIDTH', '', ''] : v === 2 ? ['STANDARD', '', ''] : ['LOW BANDWIDTH', '', ''];
 
@@ -399,13 +461,23 @@ function renderStatus() {
     else if (v.phase === 'review' && r.passes.includes(p.seat)) st = 'pass';
     else if (p.pos == null && !p.goals.length) st = 'out';
     S3.setStatus(p.seat, st);
+    // the turn player's dice cup on the table
+    let cup = 'off';
+    if (!v.over && v.turn === p.seat) {
+      if (v.phase === 'declare') {
+        if (p.seat === me() && syncRoll()) cup = { ready: 'wait', shake: 'shake', land: 'shake', reveal: 'down', done: 'down' }[ST.roll.st];
+        else cup = { wait: 'wait', shake: 'shake', done: 'down' }[r.rollSt || 'wait'];
+      } else if (v.phase === 'review') cup = 'down';
+      else if (v.phase === 'result') cup = v.last && v.last.kind !== 'pass' ? 'lift' : 'down';
+    }
+    S3.setCup(p.seat, cup);
   }
 }
 function renderBanner() {
   const v = DV(); if (!v) return;
   let ph = '', sub = `ゴール ${v.goalCount}/${v.maxRank}・審議 ${ST.room.sec}秒` + (ST.nextSeat != null && !v.over ? `・次は <b>${ST.nextSeat === me() ? 'あなた' : esc(P(ST.nextSeat).name)}</b>` : '');
   if (v.over && !ST.suspense) ph = '対戦終了';
-  else if (v.phase === 'declare') ph = v.turn === me() ? 'あなたの手番' : `${nm(v.turn)} が転送量を確認中`;
+  else if (v.phase === 'declare') ph = v.turn === me() ? (myRollPending() ? 'あなたの手番：カップを振る' : 'あなたの手番：申告する数を選ぶ') : `${nm(v.turn)} ${{ wait: 'の手番', shake: 'がカップを振っています', done: 'が申告を考え中' }[ST.room.rollSt || 'wait']}`;
   if (ST.suspense && ST.duelData) ph = `${nm(ST.duelData.ch)} → ${nm(ST.duelData.sd)} — ${ST.duelStage === 'flip' ? '結果発表…' : '照合中…'}`;
   else if (v.phase === 'review') ph = ST.room.doubters.length ? `${nm(ST.room.doubters[0])} → ${nm(v.turn)} をダウト — 照合中` : `ダウト審議：${nm(v.turn)} の「${v.review.value}」`;
   else if (v.phase === 'result') ph = v.last && v.last.kind === 'doubt' ? (v.last.truth ? `ダウト失敗 — ${nm(v.last.seat)} の勝ち` : `ダウト成功 — ${nm(v.last.challenger)} の勝ち`) : '申告承認';
@@ -472,9 +544,17 @@ function renderRack() {
   for (let k = 1; k <= v.maxRank; k++) h += own[k] != null ? `<div class="slot f" style="background:${col(own[k])};color:${col(own[k])}"><span style="color:#0a0a0a">${k}</span></div>` : k <= v.goalCount ? `<div class="slot gone">${k}</div>` : `<div class="slot">${k}</div>`;
   $('#rack').innerHTML = h;
 }
+function declTiles(pos, roll, locked, hidden) {
+  const K = (k) => `<span class="kbd">${k}</span>`;
+  return `<div class="decl ${locked ? 'locked' : ''} ${ST.roll.fresh ? 'fresh' : ''}">${[1, 2, 3, 4].map(n => {
+    const goal = pos + n >= 9, truth = !hidden && !locked && n === roll, sel = !locked && ST.pick === n;
+    const sub = locked ? (goal ? 'ゴール' : `N${pos + n}`) : sel && COARSE ? 'タップで決定' : `${hidden ? '' : truth ? '真実・' : '嘘・'}${goal ? 'ゴール' : 'N' + (pos + n)}`;
+    return `<button data-decl="${n}" class="tile ${truth ? 'truth' : ''} ${sel ? 'sel' : ''}" ${locked ? 'disabled' : ''}><span class="tn">${n}</span>${dieHtml(n, true)}${K(n)}<small>${sub}</small></button>`;
+  }).join('')}</div>`;
+}
 function renderDock() {
   const v = ST.view, d = $('#dock'); if (!v) return;
-  if (ST.spin.active && $('#cupbox.shake')) return; // don't interrupt the shaking cup
+  if (rollBusy() && myRollPending() && ST.roll.drawn === ST.roll.st && $('#cupbox')) return; // don't restart the cup animation mid-shake
   const r = ST.room; let h = '';
   const stamps = ST.layout === 'pc' ? `<div class="stamps">${STAMPS.map((s, k) => `<button data-stamp="${k}">${s}</button>`).join('')}</div>`
     : `<div class="tabs"><button data-sheet="stamps">スタンプ</button><button data-sheet="rack">ゴール台</button>${ST.showLog ? '<button data-sheet="log">ログ</button>' : ''}</div>`;
@@ -484,21 +564,27 @@ function renderDock() {
   if (v.over) { h = `<div class="big">対戦終了</div>`; d.innerHTML = h; return; }
   if (v.phase === 'declare') {
     if (v.turn === me()) {
-      const roll = v.myRoll, [tt, tc, tsub] = tierText(roll);
-      if (ST.spin.active) h = `<div class="row">${cupHtml('shake', roll, false)}<div class="big">カップを振っています…<div class="small">出目はあなたにだけ見えます</div></div></div>`;
-      else {
-        const pos = P(me()).pos;
+      const roll = v.myRoll, [tt, tc, tsub] = tierText(roll), pos = P(me()).pos || 0;
+      const st = myRollPending() ? ST.roll.st : 'done';
+      if (st !== 'done') {
+        ST.roll.drawn = st;
+        const cs = st === 'ready' ? 'ready' : st === 'reveal' ? 'slam' : 'shake';
+        const tx = st === 'ready' ? ['カップを振ってください', COARSE ? `カップを長押しして振り、指を離すと置きます${ST.motionOK ? '（スマホを振ってもOK）' : ''}` : 'カップを長押し（Spaceキー長押しでも可）して振り、離すと置きます']
+          : st === 'reveal' ? ['…', ''] : ['振っています', '離すとカップを置きます'];
+        h = `<div class="row rollrow">${cupHtml(cs, roll, false)}<div class="rolltx"><div class="big">${tx[0]}</div><div class="small">${tx[1]}</div></div></div>` + declTiles(pos, roll, true, hidden);
+      } else {
         const reel = cupHtml(hidden ? 'down' : 'up', roll, ST.guard);
-        const info = hidden ? `<div class="tier">カップをかぶせています</div><div class="small">左のカップを押している間だけ中の出目が見えます。現在 N${pos}・ゴールまで ${9 - pos}</div>`
-          : `<div class="tier ${tc}">${tt}</div><div class="small">${tsub || `${roll}を申告すれば真実。それ以外は嘘（少なく申告しても嘘）`}。現在 N${pos}・ゴールまで ${9 - pos}</div>`;
-        h = `<div class="row">${reel}<div style="flex:1;min-width:0">${info}</div></div>
-          <div class="decl">${[1, 2, 3, 4].map(n => `<button data-decl="${n}" class="tile ${!hidden && n === roll ? 'truth' : ''}"><span class="tn">${n}</span>${dieHtml(n, true)}${K(n)}<small>${hidden ? '' : n === roll ? '真実' : '嘘'}${pos + n >= 9 ? (hidden ? 'ゴール' : '・ゴール') : (hidden ? '&nbsp;' : '')}</small></button>`).join('')}</div>`;
+        const where = `いま N${pos}・ゴールまで ${9 - pos}`;
+        const info = hidden ? `<div class="tier">カップの中を確認</div><div class="small">左のカップを押している間だけ出目が見えます。${where}</div>`
+          : `<div class="tier ${tc} ${ST.roll.fresh ? 'fresh' : ''}">${tt}</div><div class="small">${tsub || `${roll} を申告すれば真実、それ以外は嘘`}。${where}</div>`;
+        h = `<div class="row">${reel}<div style="flex:1;min-width:0">${info}</div></div>` + declTiles(pos, roll, false, hidden);
       }
     } else {
       const m = r.members.find(x => x.seat === v.turn) || {};
-      const slow = r.turnFor > r.slowMs;
-      h = `<div class="big">${who(v.turn)} が転送許容量を確認中…${slow ? '<span class="chip" style="margin-left:6px">考え中（30秒経過）</span>' : ''}</div>
-        <div class="small">出目は本人にしか見えません。通話で揺さぶるなら今のうち。</div>`;
+      const slow = r.turnFor > r.slowMs, rs = r.rollSt || 'wait';
+      const act = rs === 'wait' ? 'がカップを手に取りました' : rs === 'shake' ? 'がカップを振っています' : 'が申告を考えています';
+      h = `<div class="big waitline ${rs}">${rs === 'shake' ? '<span class="minicup"></span>' : ''}${who(v.turn)} ${act}<span class="dots"><i></i><i></i><i></i></span>${slow && rs === 'done' ? '<span class="chip" style="margin-left:6px">30秒経過</span>' : ''}</div>
+        <div class="small">${rs === 'done' ? '申告が出るとダウト審議が始まります' : '出目は振った本人にしか見えません'}</div>`;
       if (!m.connected && !m.bot) h += `<div class="small" style="color:#ff9aa8">${nm(v.turn)} は切断中（${Math.floor(m.discFor / 1000)}秒）。</div>` + (ST.you.host && m.discFor > r.graceMs ? `<button class="go ghost" data-skip>この手番をスキップ（ホスト）</button>` : '');
     }
   } else if (v.phase === 'review') {
@@ -507,7 +593,7 @@ function renderDock() {
     const hl = `<div class="histline ${((RV().hist || [])[v.turn] || []).length ? '' : 'empty'}"><span class="small">直近の申告</span>${histHtml(v.turn, 6)}</div>`;
     h = `<div class="claim"><div class="hglass ${doubting ? 'stop' : ''}" id="hglass"><svg viewBox="0 0 60 90" aria-hidden="true"><path d="M8 4h44M8 86h44" stroke="#c9a86a" stroke-width="5" stroke-linecap="round"/><path d="M12 8 C12 30 26 38 30 45 C34 38 48 30 48 8 Z" class="hg-g"/><path d="M12 82 C12 60 26 52 30 45 C34 52 48 60 48 82 Z" class="hg-g"/><path class="hg-top" d="M14 10 C14 30 27 38 30 44 C33 38 46 30 46 10 Z"/><path class="hg-bot" d="M14 80 C14 62 27 54 30 47 C33 54 46 62 46 80 Z"/><line class="hg-stream" x1="30" y1="44" x2="30" y2="80"/></svg><div class="timer" id="timer">${doubting ? '!' : ''}</div></div><div class="claimbox"><div class="small">${who(v.turn)} の申告</div><div class="row" style="gap:10px"><div class="claimtile"><span>${rv.value}</span></div><span class="small">ノード</span></div></div><div style="margin-left:auto">${bar}</div></div>${v.turn === me() ? '' : hl}`;
     if (v.turn === me()) h += `<div class="mine">${hidden ? cupHtml('down', v.myRoll, true) : dieHtml(v.myRoll)}<div><div class="mt">あなたの「${rv.value}」を審議中${hidden ? '' : rv.value === v.myRoll ? '<em class="ok">本当</em>' : '<em class="lie">嘘</em>'}</div>
-      <div class="ms">${hidden ? '左のカップを押している間だけ、実際の出目をのぞけます。' : ''}ダウトされなければ ${rv.value} 進めます。通話の揺さぶりに耐えろ。</div></div></div>`;
+      <div class="ms">${hidden ? '左のカップを押している間だけ、実際の出目をのぞけます。' : ''}ダウトされなければ ${rv.value} 進みます。</div></div></div>`;
     else if (!rv.myStake) h += `<div class="small">ダウト資格なし（観戦・会話のみ）</div>`;
     else if (doubting) h += `<div class="big" style="color:var(--hot)">${who(r.doubters[0])} が ${who(v.turn)} をダウト — 照合中…</div>`;
     else {
@@ -584,7 +670,7 @@ function renderTitle() {
       <div class="row"><input type="text" id="code" maxlength="4" placeholder="ルームコード" style="flex:1;text-transform:uppercase;letter-spacing:.2em" value="${esc(new URLSearchParams(location.search).get('room') || '')}" autocomplete="off"><button class="go alt" id="bJoin" style="flex:none;padding:10px 18px;font-size:16px">参加</button></div>
       ${sess && !(sess.host && !ST.wsMode) ? `<button class="go ghost" id="bRejoin">前回のルーム ${esc(sess.code)} に戻る</button>` : ''}
       <div class="err" id="err">${esc(ST.joinErr || '')}</div>`
-    : `<p class="small">オンライン対戦は、サーバー版のURLを開いたときに使えます。このページでは練習モードで3D演出とルールを試せます。</p>`;
+    : `<p class="small">このページではオンライン対戦を使えません。練習モードでルールと操作を試せます。</p>`;
   sc.innerHTML = `<div class="panel">
     <div class="hero boxlid"><h1>GHOST<b>//</b>PACKET</h1><p>自分の不正通信は通したい。他人の不正通信は見破って利用したい。</p>
       <div class="specs"><span><b>3〜5</b>人</span><span><b>20〜30</b>分</span><span><b>10</b>歳以上</span></div></div>
@@ -621,7 +707,7 @@ function renderLobby() {
     ${host ? `<div><label>ダウト審議時間（開始後は変更不可）</label><div class="seg">${[20, 40, 60].map(s => `<button data-setsec="${s}" aria-pressed="${r.sec === s}">${s}秒${s === 40 ? '（標準）' : ''}</button>`).join('')}</div></div>
       <div class="row"><button class="go ghost" id="bBot" ${n >= 5 ? 'disabled' : ''} style="flex:1">練習用CPUを追加</button><button class="go" id="bStart" ${n < 3 ? 'disabled' : ''} style="flex:2">${n < 3 ? `あと${3 - n}人で開始できます` : '対戦開始'}</button></div>`
       : `<div class="big" style="text-align:center">ホストの開始を待っています…</div>`}
-    <div class="lobbyfoot"><span class="small">ボイスチャット（Discord等）をつないでからスタート！</span><button class="go ghost" id="bLeave2" style="padding:8px 18px;font-size:14px">ルームを出る</button></div>
+    <div class="lobbyfoot"><span></span><button class="go ghost" id="bLeave2" style="padding:8px 18px;font-size:14px">ルームを出る</button></div>
   </div></div>`;
 }
 // end-of-match awards — computed only from public facts
@@ -655,10 +741,10 @@ function renderOver() {
 
 // ───────── first-visit guide ─────────
 const GUIDE = [
-  ['出目はあなただけが見る', `<div class="gill"><div class="row" style="justify-content:center;gap:18px">${dieHtml(3)}<span class="gsmall">カップの中は<br>あなただけが見る</span></div></div>`, '手番では 1・2・3・4・×・× のどれかが出ます。見えるのはあなただけ。'],
+  ['出目はあなただけが見る', `<div class="gill"><div class="row" style="justify-content:center;gap:18px">${dieHtml(3)}<span class="gsmall">カップの中は<br>あなただけが見る</span></div></div>`, '手番ではカップを長押しして振り、離して置きます。出目は 1・2・3・4・×・× のどれか。見えるのはあなただけです。'],
   ['1〜4を申告。嘘でもいい', `<div class="gill row" style="justify-content:center"><span class="gnum">1</span><span class="gnum">2</span><span class="gnum">3</span><span class="gnum hot">4</span></div>`, '申告した数だけ進めます。×が出たら何を言っても嘘。'],
   ['怪しいと思ったらDOUBT', `<div class="gill"><div class="gdoubt">DOUBT</div></div>`, '嘘なら相手のパケットは猫動画に、あなたは申告値だけ前進。真実なら、あなたのパケットが没収。'],
-  ['先に3個届けたら勝ち', `<div class="gill row" style="justify-content:center;gap:10px">${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}</div>`, '口での「ダウトしようかな」は牽制だけ。通話でどんどん揺さぶってください。'],
+  ['先に3個届けたら勝ち', `<div class="gill row" style="justify-content:center;gap:10px">${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}</div>`, '「ダウトしようかな」と口で言うだけなら何も起きません。画面のDOUBTを押した人だけが監査します。'],
 ];
 function guide(k = 0) {
   const [t, ill, d] = GUIDE[k];
@@ -715,8 +801,8 @@ function placeBubble(b) { const cr = $('#gl').getBoundingClientRect(), p0 = S3.p
 function modal(html, own) { const m = $('#modal'); m.className = 'modal' + (own ? ' paper' : ''); m.hidden = false; m.innerHTML = `<div class="glass">${html}${own ? '' : '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="go ghost" data-close>閉じる</button></div>'}</div>`; }
 const RULES = `<h2>遊び方</h2>
  <p>全員がライバルのハッカー。各自7個の不正パケットを、9ノード先の目的サーバーへ1個ずつ送り込みます。<b>先に3個届けた人が即勝利</b>。</p>
- <h3>手番</h3><p>あなたにだけ見える転送許容量（1・2・3・4・×・× が等確率）を確認し、1〜4を申告。出目と同じなら真実、違えば嘘。×は何を言っても嘘です。</p>
- <h3>ダウト審議</h3><p>申告後は通話で好きなだけ揺さぶり合ってください。画面のDOUBTを押した1人だけが監査します。誰も押さず時間切れ、または全員スルーで申告どおり前進し、本当の出目は誰にも明かされません。</p>
+ <h3>手番</h3><p>カップを振って、あなたにだけ見える転送許容量（1・2・3・4・×・× が等確率）を確認し、1〜4を申告。スマホでは数字をタップで選び、もう一度タップで決定です。出目と同じなら真実、違えば嘘。×は何を言っても嘘です。</p>
+ <h3>ダウト審議</h3><p>申告後は自由に会話できます。画面のDOUBTを押した1人だけが監査します。誰も押さず時間切れ、または全員スルーで申告どおり前進し、本当の出目は誰にも明かされません。</p>
  <ul><li>嘘だった：送信者のパケットは猫動画に変換されて消滅。監査した人は申告値だけ前進。</li><li>真実だった：送信者は前進。監査した人は転送中パケットを没収。</li><li>250ms以内の同時ダウトは、手番の次の席から時計回りで近い人が挑戦者。</li><li>口で「ダウトしようかな」と言っても正式なダウトにはなりません。</li></ul>
  <h3>ゴールと得点</h3><p>ゴール順に1点、2点、3点…。手持ちを使い切った人はゴール済みを1個賭けてダウトできます（成功しても前進なし、失敗でその得点ごと没収・番号は欠番）。ゴール台（人数×2枠）が埋まるか誰も送れなくなったら、得点合計で勝負。</p>
  <h3>マナー</h3><p>出目が見える画面共有は禁止。申告に時間制限はありませんが、30秒を過ぎると「考え中」が表示されます。</p>`;
@@ -733,7 +819,11 @@ document.addEventListener('click', (e) => {
   if (ds.seco) { ST.cfg.sec = +ds.seco; keepTitle(); A.sfx('click'); return; }
   if (ds.setsec) { send({ t: 'setSec', sec: +ds.setsec }); return; }
   if (ds.kick) { send({ t: 'kick', id: ds.kick }); return; }
-  if (ds.decl) { send({ t: 'declare', v: +ds.decl }); A.sfx('clack'); vib(15); return; }
+  if (ds.decl) {
+    const n = +ds.decl; if (myRollPending()) return;
+    if (COARSE && ST.pick !== n) { ST.pick = n; if (S3) S3.preview(me(), n); A.sfx('click'); vib(8); renderDock(); return; }   // touch: tap to choose, tap again to declare
+    ST.pick = null; if (S3) S3.preview(null); send({ t: 'declare', v: n }); A.sfx('clack'); vib(15); return;
+  }
   if (ds.pass != null) { A.sfx('slap'); send({ t: ST.view.review.iPassed ? 'unpass' : 'pass' }); return; }
   if (ds.doubt != null) { vib(25); A.sfx('slap'); if (ST.view.review.iPassed) send({ t: 'unpass' }); send({ t: 'doubt', rank: ST.view.review.myStake === 'goal' ? ST.stake : undefined }); return; }
   if (ds.stake) { ST.stake = +ds.stake; renderDock(); return; }
@@ -781,8 +871,9 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') { if (e.key === 'Enter' && e.target.id === 'code') $('#bJoin').click(); return; }
   const v = ST.view; if (!v || v.over) return;
+  if ((e.code === 'Space' || e.key === 'Enter') && myRollPending()) { e.preventDefault(); if (!e.repeat) { if (e.key === 'Enter') { shakeStart('key'); shakeEnd(true); } else shakeStart('key'); } return; }
   if (e.code === 'Space' && !e.repeat && canPeek()) { e.preventDefault(); peek(true); return; }
-  if (v.phase === 'declare' && v.turn === me() && !ST.spin.active && '1234'.includes(e.key)) send({ t: 'declare', v: +e.key });
+  if (v.phase === 'declare' && v.turn === me() && !myRollPending() && '1234'.includes(e.key)) { ST.pick = null; if (S3) S3.preview(null); send({ t: 'declare', v: +e.key }); A.sfx('clack'); }
   if (v.phase === 'review' && v.turn !== me() && v.review.myStake) {
     if (e.key === 'd' || e.key === 'D') $('[data-doubt]') && $('[data-doubt]').click();
     if (e.key === 's' || e.key === 'S') $('[data-pass]') && $('[data-pass]').click();
@@ -807,7 +898,7 @@ function syncToggles() {
   const set = (id, on) => { const b = $(id); if (b) b.setAttribute('aria-pressed', on); };
   set('#bBgm', A.bgmOn); set('#bSfx', A.sfxOn); set('#bGuard', ST.guard);
 }
-function canPeek() { const v = ST.view; return ST.guard && v && !v.over && v.turn === me() && (v.phase === 'declare' || v.phase === 'review') && !ST.spin.active; }
+function canPeek() { const v = ST.view; return ST.guard && v && !v.over && v.turn === me() && (v.phase === 'declare' || v.phase === 'review') && !myRollPending(); }
 function peek(on) {
   if (on && !canPeek()) return;
   if (ST.peeking === on) return;
@@ -817,7 +908,14 @@ function peek(on) {
 document.addEventListener('pointerdown', (e) => { if (e.target.closest('[data-peek]')) { e.preventDefault(); peek(true); } });
 for (const ev of ['pointerup', 'pointercancel', 'blur']) addEventListener(ev, () => peek(false));
 document.addEventListener('contextmenu', (e) => { if (e.target.closest('[data-peek]')) e.preventDefault(); });
-document.addEventListener('keyup', (e) => { if (e.code === 'Space') peek(false); });
+document.addEventListener('keyup', (e) => { if (e.code === 'Space') { peek(false); if (ST.roll.src === 'key') shakeEnd(); } });
+// the cup: press and hold to shake, let go to slam it down (a quick tap shakes for a moment by itself)
+document.addEventListener('pointerdown', (e) => { if (e.target.closest('[data-roll]')) { e.preventDefault(); shakeStart('ptr'); } });
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, () => { if (ST.roll.src === 'ptr') shakeEnd(); });
+addEventListener('blur', () => { if (ST.roll.st === 'shake') shakeEnd(); });
+// PC: hovering a number shows where the packet would go
+document.addEventListener('pointerover', (e) => { if (e.pointerType !== 'mouse' || !S3) return; const t = e.target.closest('[data-decl]'); if (t && !t.disabled) S3.preview(me(), +t.dataset.decl); });
+document.addEventListener('pointerout', (e) => { if (e.pointerType !== 'mouse' || !S3) return; const t = e.target.closest('[data-decl]'); if (t && !(e.relatedTarget && t.contains(e.relatedTarget))) S3.preview(ST.pick ? me() : null, ST.pick); });
 // PC: drag the table to turn it, wheel to zoom, double-click to reset
 (() => {
   const c = $('#gl'); let drag = null;
@@ -853,7 +951,7 @@ function frame() {
   requestAnimationFrame(frame);
   const v = ST.view;
   // watchdog: the private reel must never block declaring
-  if (ST.spin.active && performance.now() - ST.spin.t0 > 3000) { ST.spin.active = false; renderDock(); }
+  if (ST.roll.st === 'land' && performance.now() - ST.roll.t0 > 4000) land();
   for (const b of ST.bubbles) placeBubble(b);
   if (!v || !ST.room || ST.room.phase !== 'game') { if (S3) S3.setTimer(0, false, false); return; }
   if (v.phase === 'review' && !v.over) {
@@ -873,7 +971,7 @@ function frame() {
   }
 }
 requestAnimationFrame(frame);
-setInterval(() => { if (ST.view && ST.view.phase === 'declare' && ST.room) { ST.room.turnFor += 1000; ST.room.members.forEach(m => { if (!m.connected && !m.bot) m.discFor += 1000; }); if (!ST.spin.active && ST.view.turn !== me()) renderDock(); } }, 1000);
+setInterval(() => { if (ST.view && ST.view.phase === 'declare' && ST.room) { ST.room.turnFor += 1000; ST.room.members.forEach(m => { if (!m.connected && !m.bot) m.discFor += 1000; }); if (!rollBusy() && ST.view.turn !== me()) renderDock(); } }, 1000);
 setInterval(() => { if (ST.mode === 'online' && ST.onlineT && ST.room) ST.onlineT.send({ t: 'ping', at: Date.now() }); }, 5000);
 function renderPing() { const el = $('#hudCode'); if (el && ST.mode === 'online' && ST.room) el.textContent = 'ROOM ' + ST.room.code + (ST.ping != null ? `・${ST.ping}ms` : ''); }
 
@@ -924,4 +1022,4 @@ async function connectOnline() {
     if (sess && (!qp || qp.toUpperCase() === sess.code)) ST.t.send({ t: 'join', code: sess.code, token: sess.token, name: ST.name });
   }
 })();
-window.__GP = { ST, S3, A }; // debug handle
+window.__GP = { ST, S3, A, splash }; // debug handle

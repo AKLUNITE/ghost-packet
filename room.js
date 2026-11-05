@@ -84,6 +84,13 @@
           case 'leave': if (R.phase === 'lobby') removeMember(m); break;
           case 'start': needHost(m, 'lobby'); start(); break;
           case 'declare': inGame(); GP.declare(R.G, m.seat, msg.v, now()); after(); break;
+          // cosmetic only: the turn player is shaking / has slammed down their dice cup (the roll itself was made at turn start)
+          case 'roll': {
+            inGame(); if (R.G.phase !== 'declare' || R.G.turn !== m.seat) break;
+            if (msg.s !== 'shake' && msg.s !== 'done') break;
+            if (R.rollSt === msg.s || R.rollSt === 'done') break;
+            R.rollSt = msg.s; sync([{ t: 'rollfx', seat: m.seat, s: msg.s }]); break;
+          }
           case 'pass': inGame(); GP.pass(R.G, m.seat, now()); after(); break;
           case 'unpass': inGame(); GP.unpass(R.G, m.seat, now()); after(); break;
           case 'doubt': inGame(); GP.doubt(R.G, m.seat, now(), msg.rank); after(); break;
@@ -135,7 +142,7 @@
       let resolved = null, goal = false;
       for (const e of fresh) {
         evs.push(e);
-        if (e.t === 'turn') { R.turnSince = now(); const tm = bySeat(e.seat); if (tm && tm.bot) botDeclare(e.seat); }
+        if (e.t === 'turn') { R.turnSince = now(); R.rollSt = 'wait'; R.turnId = (R.turnId || 0) + 1; const tm = bySeat(e.seat); if (tm && tm.bot) botDeclare(e.seat); }
         if (e.t === 'declare') botsReview();
         if (e.t === 'passed') { resolved = 'pass'; R.streak[e.seat]++; R.stats[e.seat].ok++; pushHist(e.seat, { v: e.value, r: 'ok' }); evs.push({ t: 'streak', seat: e.seat, n: R.streak[e.seat] }); }
         if (e.t === 'reveal') {
@@ -165,7 +172,11 @@
     const botDelay = (a, b) => (a + rng() * (b - a)) * timing.botScale;
     function botDeclare(seat) {
       const G = R.G;
-      later(Math.max(timing.botMin, botDelay(1400, 3200)), () => {
+      const live = () => R.G === G && G.phase === 'declare' && G.turn === seat;
+      const t0 = botDelay(500, 1100), t1 = t0 + botDelay(700, 1300);
+      later(Math.max(timing.botMin, t0), () => { if (live() && R.rollSt === 'wait') { R.rollSt = 'shake'; sync([{ t: 'rollfx', seat, s: 'shake' }]); } });
+      later(Math.max(timing.botMin, t1), () => { if (live() && R.rollSt !== 'done') { R.rollSt = 'done'; sync([{ t: 'rollfx', seat, s: 'done' }]); } });
+      later(Math.max(timing.botMin, t1 + botDelay(900, 2600)), () => {
         if (R.G !== G || G.phase !== 'declare' || G.turn !== seat) return;
         try { GP.declare(G, seat, B.declare(G.players[seat].active.pos, G.roll, rng), now()); after(); } catch (e) { /* state moved on */ }
       });
@@ -209,7 +220,7 @@
         room: {
           code: R.code, sec: R.sec, phase: R.phase,
           members: R.members.map(x => ({ id: x.id, name: x.name, bot: x.bot, host: !!x.host, connected: x.connected, seat: x.seat, color: x.color, style: x.style, discFor: x.discSince ? t - x.discSince : 0 })),
-          turnFor: G && G.phase === 'declare' ? t - R.turnSince : 0, slowMs: DECLARE_SLOW_MS, graceMs: DISC_GRACE_MS,
+          turnFor: G && G.phase === 'declare' ? t - R.turnSince : 0, rollSt: G && G.phase === 'declare' ? R.rollSt || 'wait' : null, turnId: R.turnId || 0, slowMs: DECLARE_SLOW_MS, graceMs: DISC_GRACE_MS,
           reviewLeft: G && G.phase === 'review' ? Math.max(0, G.review.deadline - t) : 0,
           nextIn: G && G.phase === 'result' ? Math.max(0, R.nextTurnAt - t) : 0,
           streak: R.streak, stats: R.stats || [], hist: R.hist || [],
