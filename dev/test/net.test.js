@@ -161,11 +161,11 @@ t('T16', '送信可能者0 → ゴール数で確定', async () => {
   const over = cs[1].wait(m => m.view && m.view.over); cs[0].send({ t: 'declare', v: 1 }); await sleep(50); await debug(cs, 'G.review.deadline=Date.now()+100');
   const m = await over; assert(m.view.over.type === 'nomove' && m.view.over.winners.join() === '1,2,3', 'tie ' + m.view.over.winners); return cs;
 });
-t('T17', '5人戦10番目のゴール → ゴール数で勝負して終了', async () => {
+t('T17', '5人戦10個目のゴール → 終わらず続行', async () => {
   const cs = await room(5);
   await debug(cs, "let r=1; G.players.forEach((p,i)=>{ if(i){p.goals=[{rank:r++},{rank:r++}]; p.reserve-=2;} }); const p0=G.players[0]; p0.goals=[{rank:9}]; p0.reserve-=1; p0.active.pos=8; G.goalCount=9; G.roll=1;");
-  const over = cs[1].wait(m => m.view && m.view.over); cs[0].send({ t: 'declare', v: 1 }); await sleep(50); await debug(cs, 'G.review.deadline=Date.now()+100');
-  const m = await over; assert(m.view.over.type === 'slots' && m.view.over.winners.length === 5, 'slots ' + m.view.over.winners); return cs;
+  const next = cs[1].wait(m => m.view && m.view.turn === 1 && m.view.phase === 'declare', 8000); cs[0].send({ t: 'declare', v: 1 }); await sleep(50); await debug(cs, 'G.review.deadline=Date.now()+100');
+  const m = await next; assert(!m.view.over && m.view.goalCount === 10 && P(cs[1], 0).score === 2, 'should continue'); return cs;
 });
 
 t('X03', '3人ルームで開始・6人目は満員で拒否', async () => {
@@ -176,7 +176,7 @@ t('X03', '3人ルームで開始・6人目は満員で拒否', async () => {
   assert(e.code === 'full', 'expected full, got ' + e.code);
   cs[4].send({ t: 'leave' }); cs[3].send({ t: 'leave' }); await sleep(150);
   const st = cs[0].wait(m => m.t === 'sync' && m.room.phase === 'game'); cs[0].send({ t: 'start' }); const g = await st;
-  assert(g.view.players.length === 3 && g.view.maxRank === 6, '3p start');
+  assert(g.view.players.length === 3 && g.view.winAt === 3, '3p start');
   return cs;
 });
 

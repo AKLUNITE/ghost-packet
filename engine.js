@@ -22,7 +22,7 @@
       })),
       turn: opts.firstSeat != null ? opts.firstSeat : Math.floor(rng() * n),
       phase: 'idle', roll: null, review: null, last: null,
-      goalCount: 0, maxRank: n * 2, seq: 0, over: null, log: [],
+      goalCount: 0, seq: 0, over: null, log: [],
     };
     return s;
   }
@@ -133,7 +133,6 @@
       log(s, { t: 'goal', seat: p.seat, rank });
       if (p.goals.length >= 3) { s.over = { type: 'three', winners: [p.seat], standings: standings(s) }; log(s, { t: 'win3', seat: p.seat }); return; }
       refill(s, p);
-      if (s.goalCount >= s.maxRank) endByScore(s, 'slots');
     }
   }
 
@@ -191,7 +190,8 @@
     nextTurn(s);
   }
 
-  // 勝敗はゴールしたパケットの数だけで決まる（2026-11 ユーザー決定。以前は到着順位の合計点）
+  // 勝敗はゴールしたパケットの数だけ。先に3個ゴールした人が優勝（2026-11 ユーザー決定。到着順位の点数とゴール台の上限は廃止）。
+  // 誰も送れなくなって終わったときだけ、ゴール数の多い人が勝ち（同数は同時優勝）
   function score(p) { return p.goals.length; }
   function standings(s) {
     const rows = s.players.map(p => ({ seat: p.seat, score: score(p), goals: p.goals.length }));
@@ -211,7 +211,7 @@
   function view(s, seat) {
     const showRoll = (s.phase === 'declare' || s.phase === 'review') && seat === s.turn;
     return {
-      n: s.n, turn: s.turn, phase: s.phase, goalCount: s.goalCount, maxRank: s.maxRank,
+      n: s.n, turn: s.turn, phase: s.phase, goalCount: s.goalCount, winAt: 3,
       players: s.players.map(p => ({ seat: p.seat, name: p.name, reserve: p.reserve, pos: p.active ? p.active.pos : null, goals: p.goals.map(g => g.rank), lost: p.lost, score: score(p) })),
       myRoll: showRoll ? s.roll : undefined,
       review: s.review && { value: s.review.value, deadline: s.review.deadline, passCount: s.review.passes.length, eligCount: s.review.elig.length, iPassed: s.review.passes.includes(seat), myStake: stakeKind(s, seat) },

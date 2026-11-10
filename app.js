@@ -175,7 +175,7 @@ function hardSync() {
     else if (!S.vis || Math.abs(S.pos - p.pos) > 0.01) S3.setPacket(p.seat, p.pos, !S.vis);
     S3.setReserve(p.seat, p.reserve);
   }
-  S3.setGoals(ST.view.goalCount, ST.view.maxRank);
+  S3.setGoals(Math.max(0, ...ST.view.players.map(p => p.goals.length)), 3);
 }
 
 // ───────── effects director ─────────
@@ -308,7 +308,7 @@ async function fx(e) {
     case 'goalLost': log(`${nm(e.seat)} のゴール済みパケットを1個没収`); if (ok) S3.floatText('★-1', S3.headWorld(e.seat), { cache: true, size: 170, grad: ['#ffd0d0', '#ff2a3a'], wW: 4 }); A.sfx('misaudit'); return 500;
     case 'win3': case 'end': {
       const o = ST.view && ST.view.over; if (!o) return 0;
-      log(e.t === 'win3' ? `${nm(e.seat)} が3パケット送信で即勝利` : `ゲーム終了（${{ slots: 'ゴール台満了', nomove: '送信可能なパケットなし' }[e.why] || ''}）`);
+      log(e.t === 'win3' ? `${nm(e.seat)} が3パケット送信で即勝利` : `ゲーム終了（${{ nomove: '送信可能なパケットなし' }[e.why] || ''}）`);
       A.setMode('stop'); A.sfx('win'); vib([60, 40, 60, 40, 200]); keepAwake(false); if (ok) S3.fxWin(o.winners[0]);
       splash('WINNER', 'rain', o.winners.map(w => P(w) && P(w).name).join('・'), 2400); return 2600;
     }
@@ -498,7 +498,7 @@ function renderStatus() {
 }
 function renderBanner() {
   const v = DV(); if (!v) return;
-  let ph = '', sub = `ゴール ${v.goalCount}/${v.maxRank}・審議 ${ST.room.sec}秒` + (ST.nextSeat != null && !v.over ? `・次は <b>${ST.nextSeat === me() ? 'あなた' : esc(P(ST.nextSeat).name)}</b>` : '');
+  let ph = '', sub = `先に★3で優勝（最多★${Math.max(0, ...v.players.map(p => p.goals.length))}）・審議 ${ST.room.sec}秒` + (ST.nextSeat != null && !v.over ? `・次は <b>${ST.nextSeat === me() ? 'あなた' : esc(P(ST.nextSeat).name)}</b>` : '');
   if (v.over && !ST.suspense) ph = '対戦終了';
   else if (v.phase === 'declare') ph = v.turn === me() ? (myRollPending() ? 'あなたの手番：カップを振る' : 'あなたの手番：申告する数を選ぶ') : `${nm(v.turn)} ${{ wait: 'の手番', shake: 'がカップを振っています', done: 'が申告を考え中' }[ST.room.rollSt || 'wait']}`;
   if (ST.suspense && ST.duelData) ph = `${nm(ST.duelData.ch)} → ${nm(ST.duelData.sd)} — ${ST.duelStage === 'flip' ? '結果発表…' : '照合中…'}`;
@@ -563,20 +563,13 @@ function renderRail() {
       <div class="score"><b class="gstar">★</b>${p.score}</div><div class="more">${histHtml(i, 8)}<div>${recordHtml(i)}</div></div></div>`;
   }).join('');
 }
+// race to 3: each player's goals out of 3
 function rackHtml() {
   const v = DV();
-  const own = {}; v.players.forEach(p => p.goals.forEach(g => { own[g] = p.seat; }));
-  let h = `<div class="ttl"><span>ゴール台（全体で${v.maxRank}個で終了）</span><span>${v.goalCount}/${v.maxRank}</span></div>`;
-  for (let k = 1; k <= v.maxRank; k++) h += own[k] != null ? `<div class="slot f" style="background:${col(own[k])};color:${col(own[k])}">${symSvg(palOf(own[k]).sym, '#0a0a0a', 12)}</div>` : k <= v.goalCount ? `<div class="slot gone" title="ゴール後に没収">${CAT_SVG}</div>` : `<div class="slot"></div>`;
-  return h;
+  const rows = v.players.slice().sort((a, b) => b.goals.length - a.goals.length).map(p => `<div class="race" style="--c:${col(p.seat)}">${symSvg(palOf(p.seat).sym, col(p.seat), 12)}<span class="rn">${p.seat === me() ? 'あなた' : esc(p.name)}</span><span class="rs">${[0, 1, 2].map(k => `<i class="${k < p.goals.length ? 'on' : ''}">★</i>`).join('')}</span></div>`).join('');
+  return `<div class="ttl"><span>先に3個ゴールした人が優勝</span></div><div class="races">${rows}</div>`;
 }
-function renderRack() {
-  const v = DV(); if (!v) return;
-  const own = {}; v.players.forEach(p => p.goals.forEach(g => { own[g] = p.seat; }));
-  let h = `<div class="ttl"><span>ゴール台（全体で${v.maxRank}個で終了）</span><span>${v.goalCount}/${v.maxRank}</span></div>`;
-  for (let k = 1; k <= v.maxRank; k++) h += own[k] != null ? `<div class="slot f" style="background:${col(own[k])};color:${col(own[k])}">${symSvg(palOf(own[k]).sym, '#0a0a0a', 12)}</div>` : k <= v.goalCount ? `<div class="slot gone" title="ゴール後に没収">${CAT_SVG}</div>` : `<div class="slot"></div>`;
-  $('#rack').innerHTML = h;
-}
+function renderRack() { const v = DV(); if (!v) return; $('#rack').innerHTML = rackHtml(); }
 function declTiles(pos, roll, locked, hidden) {
   const K = (k) => `<span class="kbd">${k}</span>`;
   return `<div class="decl ${locked ? 'locked' : ''} ${ST.roll.fresh ? 'fresh' : ''}">${[1, 2, 3, 4].map(n => {
@@ -590,7 +583,7 @@ function renderDock() {
   if (rollBusy() && myRollPending() && ST.roll.drawn === ST.roll.st && $('#cupbox')) return; // don't restart the cup animation mid-shake
   const r = ST.room; let h = '';
   const stamps = ST.layout === 'pc' ? `<div class="stamps">${STAMPS.map((s, k) => `<button data-stamp="${k}">${s}</button>`).join('')}</div>`
-    : `<div class="tabs"><button data-sheet="stamps">スタンプ</button><button data-sheet="rack">ゴール台</button>${ST.showLog ? '<button data-sheet="log">ログ</button>' : ''}</div>`;
+    : `<div class="tabs"><button data-sheet="stamps">スタンプ</button><button data-sheet="rack">優勝まで</button>${ST.showLog ? '<button data-sheet="log">ログ</button>' : ''}</div>`;
   const hidden = ST.guard && !ST.peeking;   // hold-to-peek guard
   const K = (k) => `<span class="kbd">${k}</span>`;
   if (ST.suspense && ST.duelData) {
@@ -767,9 +760,9 @@ function renderOver() {
   const iWon = o.winners.includes(me());
   sc.innerHTML = `<div class="panel" style="width:min(640px,100%)"><div class="glass card">
     <div class="hero"><h1 style="font-size:clamp(40px,8vw,70px)">${iWon ? 'YOU WIN' : 'WINNER'}</h1></div>
-    <div class="big" style="text-align:center">${o.type === 'three' ? `${who(o.winners[0])} が3パケット送信に成功！` : `ゴール数で決着：${o.winners.map(who).join('・')}`}</div>
+    <div class="big" style="text-align:center">${o.type === 'three' ? `${who(o.winners[0])} が先に3個ゴール！` : `誰も送れなくなったため、ゴール数で決着：${o.winners.map(who).join('・')}`}</div>
     <table class="st">${o.standings.map(r => `<tr class="${r.seat === me() ? 'me' : ''}"><td style="font-family:var(--f-mono);width:3em">${r.place}位</td><td>${who(r.seat)}</td><td style="text-align:right;font-family:var(--f-disp);font-size:20px;width:4em">★${r.score}</td></tr>`).join('')}</table>
-    <div class="small">${o.type === 'three' ? '3個ゴールで即勝利。' : 'ゴールした数が同じ人は同順位（同時優勝）。'}</div>
+    <div class="small">${o.type === 'three' ? '先に3個ゴールした人が優勝。' : 'ゴールした数が同じ人は同順位（同時優勝）。'}</div>
     <div class="awards">${awards()}</div>
     ${host ? `<div class="row"><button class="go" id="bAgain" style="flex:2">${ST.mode === 'practice' ? 'もう一戦' : 'ロビーに戻る'}</button><button class="go ghost" id="bQuit" style="flex:1">タイトルへ</button></div>` : `<div class="small" style="text-align:center">ホストがロビーに戻すのを待っています</div><button class="go ghost" id="bQuit">タイトルへ</button>`}
   </div></div>`;
@@ -781,7 +774,7 @@ const GUIDE = [
   ['出目はあなただけが見る', `<div class="gill"><div class="row" style="justify-content:center;gap:18px">${dieHtml(3)}<span class="gsmall">カップの中は<br>あなただけが見る</span></div></div>`, '手番ではカップを長押しして振り、離して置きます。出目は 1・2・3・4・×・× のどれか。見えるのはあなただけです。'],
   ['1〜4を申告。嘘でもいい', `<div class="gill row" style="justify-content:center"><span class="gnum">1</span><span class="gnum">2</span><span class="gnum">3</span><span class="gnum hot">4</span></div>`, '申告した数だけ進めます。×が出たら何を言っても嘘。'],
   ['怪しいと思ったらDOUBT', `<div class="gill"><div class="gdoubt">DOUBT</div></div>`, '嘘なら相手のパケットは猫動画に、あなたは申告値だけ前進。真実なら、あなたのパケットが没収。'],
-  ['先に3個届けたら勝ち', `<div class="gill row" style="justify-content:center;gap:10px">${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}</div>`, '勝敗はゴールした数だけ。途中で終わったら、ゴール数が一番多い人の勝ちです。「ダウトしようかな」と口で言うだけなら何も起きません。'],
+  ['先に3個届けたら勝ち', `<div class="gill row" style="justify-content:center;gap:10px">${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}</div>`, 'ゴールの順番や点数は関係ありません。3個そろえた人の勝ちです。「ダウトしようかな」と口で言うだけなら何も起きません。'],
 ];
 function guide(k = 0) {
   const [t, ill, d] = GUIDE[k];
@@ -797,7 +790,7 @@ function closeSheet() { ST.sheet = null; $('#sheet').hidden = true; $('#sheetBac
 function renderSheet() {
   const k = ST.sheet, el = $('#sheet'); if (!k) return;
   const sw = (id, on, label, sub) => `<div class="opt"><div>${label}${sub ? `<small>${sub}</small>` : ''}</div><button class="sw" data-opt="${id}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></div>`;
-  const titles = { menu: 'メニュー', stamps: 'スタンプ', rack: 'ゴール台', log: '通信ログ' };
+  const titles = { menu: 'メニュー', stamps: 'スタンプ', rack: '優勝まで', log: '通信ログ' };
   let h = `<div class="shead"><div class="grab"></div><span class="sht">${titles[k] || '詳細'}</span><button class="shx" data-sheetclose aria-label="閉じる">✕ 閉じる</button></div>`;
   if (k === 'menu') {
     h += `<div class="opt"><div>音量<small>BGMと効果音の全体</small></div><input type="range" class="vol" id="vol" min="0" max="100" value="${Math.round(A.vol * 100)}" aria-label="音量"></div>${sw('bgm', A.bgmOn, 'BGM')}${sw('sfx', A.sfxOn, '効果音')}${sw('guard', ST.guard, '出目ガード', '自分の出目を、押している間だけ表示')}${CAN_VIBE ? sw('vibe', ST.vibe, '振動', '手番・ダウト・残り5秒などで振動') : ''}
@@ -861,7 +854,7 @@ const RULES = `<h2>遊び方</h2>
  <h3>手番</h3><p>カップを振って、あなたにだけ見える転送許容量（1・2・3・4・×・× が等確率）を確認し、1〜4を申告。スマホでは数字をタップで選び、もう一度タップで決定です。出目と同じなら真実、違えば嘘。×は何を言っても嘘です。</p>
  <h3>ダウト審議</h3><p>申告後は自由に会話できます。画面のDOUBTを押した1人だけが監査します。誰も押さず時間切れ、または全員スルーで申告どおり前進し、本当の出目は誰にも明かされません。</p>
  <ul><li>嘘だった：送信者のパケットは猫動画に変換されて消滅。監査した人は申告値だけ前進。</li><li>真実だった：送信者は前進。監査した人は転送中パケットを没収。</li><li>250ms以内の同時ダウトは、手番の次の席から時計回りで近い人が挑戦者。</li><li>口で「ダウトしようかな」と言っても正式なダウトにはなりません。</li></ul>
- <h3>勝敗</h3><p><b>ゴールしたパケットの数だけで勝負</b>。3個ゴールした人がその場で勝ち。全体のゴール数が人数×2個に達するか、誰も送れなくなったら、その時点でゴール数が一番多い人の勝ち（同数は同時優勝）。手元のパケットを使い切った人は、ゴール済みを1個賭けてダウトできます（当てても前進なし、外すと1個没収）。</p>
+ <h3>勝敗</h3><p><b>先に3個ゴールさせた人が優勝</b>。万一、全員のパケットが尽きて誰も送れなくなったときだけ、ゴール数が一番多い人の勝ち（同数は同時優勝）。手元のパケットを使い切った人は、ゴール済みを1個賭けてダウトできます（当てても前進なし、外すと1個没収）。</p>
  <h3>パケットの見方</h3><p>プレイヤー欄の7つの印が、その人のパケット全部です。<b>★</b>＝ゴール済み、<b>塗りつぶし</b>＝転送中（数字は今いるノード）、<b>枠だけ</b>＝手元、<b>猫</b>＝猫動画にされた・没収された。</p>
  <h3>マナー</h3><p>出目が見える画面共有は禁止。申告に時間制限はありませんが、30秒を過ぎると「考え中」が表示されます。</p>`;
 
