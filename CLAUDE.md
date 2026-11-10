@@ -41,16 +41,16 @@
 - 毎フレーム：`frame`（タイマー・BGMの緊張度）
 - 盤面の操作：PCはドラッグで回転・ホイールで拡大。スマホはピンチで拡大、拡大中は1本指で移動、ダブルタップか「表示を戻す」で元に戻す（`S3.zoomBy / panBy / resetView`、`syncZoomChip`）
 - パケット一覧 `trayHtml(p, big)`：★ゴール／塗り＝転送中／枠＝手元／猫＝猫動画・没収。プレイヤー欄・詳細シートに表示
-- 猫動画カード `catCard(seat)`：嘘がバレたときに盤面中央に出す（`destroy` イベントの cause が cat）
+- 猫動画の画面ジャック `catJack(seat)`：嘘がバレたとき（`destroy` イベントの cause が cat）に画面全体が約2.3秒「cat.mp4」の再生画面になる。タップで飛ばせる。閉じたあとプレイヤー欄の猫印が弾む
 - 演出文字 `splash`：文字数から幅を見積もって `--n` に入れ、盤面の幅（`cqw`）に収まる大きさにしている
-- デバッグ用：`window.__GP = { ST, S3, A, splash }`
+- デバッグ用：`window.__GP = { ST, S3, A, splash, catJack }`
 
 ### 通信メッセージ（クライアント → room.handle）
 `create/join`（WSのみ）、`look`、`addBot`、`kick`、`setSec`、`start`、`roll {s:'shake'|'done'}`（演出だけ）、`declare {v}`、`pass`、`unpass`、`doubt {rank?}`、`react {k}`、`skipTurn`、`lobby`、`leave`。
 サーバー → 各自に `sync`（`you, room, view, events[]`）。`events` が演出の元：`start turn rollfx declare pass doubtIn reveal passed goal cat confiscate over react say streak disc` など。
 
 ### style.css の注意
-上から「基本 → 端末別レイアウト → アナログ風の見た目 → 磨き込み → v3（読みやすさ・カップ） → v4（スマホの小さい操作パネル・ダウトカード・閉じられるシート） → v5（はみ出し対策・ピンチ拡大） → v6（パケット7個の一覧 `.tray`・猫動画カード `.catcard`）」の順に重ねている。**後に書いたブロックが前を上書きする**。直すときは既存ブロックを探して直すか、末尾の v3 ブロックに足す。`!important` は v3 の演出文字（`.sp`）など一部だけ。
+上から「基本 → 端末別レイアウト → アナログ風の見た目 → 磨き込み → v3（読みやすさ・カップ） → v4（スマホの小さい操作パネル・ダウトカード・閉じられるシート） → v5（はみ出し対策・ピンチ拡大） → v6（パケット7個の一覧 `.tray`・猫動画の画面ジャック `.catjack`）」の順に重ねている。**後に書いたブロックが前を上書きする**。直すときは既存ブロックを探して直すか、末尾の v3 ブロックに足す。`!important` は v3 の演出文字（`.sp`）など一部だけ。
 レイアウトは `body[data-layout]` = `pc` / `port`（スマホ縦）/ `land`（スマホ横）。
 
 ## テスト（Node 22）

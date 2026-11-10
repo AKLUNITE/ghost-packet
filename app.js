@@ -294,12 +294,12 @@ async function fx(e) {
       A.sfx('goal'); vib([20, 30, 20, 30, 80]); splash('GOAL!!', 'gold', `${P(e.seat) ? P(e.seat).name : ''}  ★${P(e.seat) ? P(e.seat).goals.length : ''}個目`, 1500); return 1250;
     }
     case 'destroy': {
-      ST.lostPop = e.seat; setTimeout(() => { if (ST.lostPop === e.seat) ST.lostPop = null; }, 1300);
+      if (e.cause !== 'cat') { ST.lostPop = e.seat; setTimeout(() => { if (ST.lostPop === e.seat) ST.lostPop = null; }, 1300); }
       if (e.cause === 'cat') {
         log(`${nm(e.seat)} のパケットは嘘がバレて猫動画にすり替えられた（パケット1個を失う）`);
         if (ok) S3.fxCat(e.seat);
-        await sleep(950); if (ok) S3.setPacket(e.seat, null);
-        catCard(e.seat); A.sfx('meow'); return 1900;
+        await sleep(650); if (ok) S3.setPacket(e.seat, null);
+        catJack(e.seat); A.sfx('meow'); setTimeout(() => A.sfx('meow', { at: 0 }), 900); return ST.calm ? 1500 : 2200;
       }
       log(`${nm(e.seat)} のパケットを誤監査で没収`); if (ok) S3.fxConfiscate(e.seat); A.sfx('misaudit');
       await sleep(450); if (ok) S3.setPacket(e.seat, null); return 200;
@@ -814,23 +814,38 @@ function renderSheet() {
 }
 
 // ───────── overlays ─────────
-// "your packet became a cat video": a video-player card over the board, clearer than the 3D sprite alone
-function catCard(seat) {
+// "your packet became a cat video": the whole screen is briefly hijacked by a cat-video player (tap to skip)
+function catJack(seat) {
   const p = P(seat); if (!p) return;
-  const mine = seat === me(), el = $('#splash');
-  el.innerHTML = `<div class="catcard ${ST.calm ? 'calm' : ''}" style="--c:${col(seat)}">
-    <div class="cc-scr"><svg viewBox="0 0 160 100" aria-hidden="true">
-      <rect width="160" height="100" rx="6" fill="#ffd9a8"/><rect y="60" width="160" height="40" fill="#ffb3c7"/>
-      <g class="cc-cat"><path d="M48 52 54 18 72 34h16l18-16 6 34v14c0 16-14 26-32 26s-34-10-34-26z" fill="#f39a3d"/>
-      <ellipse cx="80" cy="66" rx="18" ry="12" fill="#ffd9b0"/><g class="cc-eye"><ellipse cx="68" cy="50" rx="4" ry="5.5" fill="#1a1a1a"/><ellipse cx="92" cy="50" rx="4" ry="5.5" fill="#1a1a1a"/></g>
-      <path d="M77 60h6l-3 4z" fill="#ff7aa0"/><path d="M80 64q-4 6-8 3M80 64q4 6 8 3" stroke="#1a1a1a" stroke-width="1.6" fill="none"/>
-      <path d="M58 60 36 56M58 65 36 68M102 60l22-4M102 65l22 3" stroke="#1a1a1a" stroke-width="1.2"/></g>
-      <rect y="88" width="160" height="12" fill="rgba(0,0,0,.7)"/><rect class="cc-bar" x="6" y="93" width="110" height="3" fill="#ff3b3b"/><text x="154" y="97" font-size="7" fill="#fff" text-anchor="end" font-family="monospace">cat.mp4</text>
-    </svg></div>
-    <div class="cc-t">${mine ? 'あなたの' : esc(p.name) + ' の'}パケットが<br><b>猫動画</b>にすり替えられた</div>
-    <div class="cc-s">嘘がバレたパケットはゲームから消えます（1個失う）。${p.reserve ? `次は手元の ${p.reserve} 個から送ります` : '手元のパケットはもうありません'}</div>
-  </div>`;
-  clearTimeout(ST.splashT); ST.splashT = setTimeout(() => { el.innerHTML = ''; }, ST.calm ? 1800 : 2600);
+  document.querySelector('.catjack')?.remove();
+  const dur = ST.calm ? 1500 : 2300, el = document.createElement('div');
+  el.className = 'catjack' + (ST.calm ? ' calm' : ''); el.style.setProperty('--dur', dur + 'ms');
+  const who = seat === me() ? 'あなた' : esc(p.name);
+  el.innerHTML = `<div class="cj-top"><span class="cj-back">‹</span><span class="cj-title">cat.mp4</span><span class="cj-hd">HD</span></div>
+    <div class="cj-stage">
+      <i class="cj-spark" style="--x:18%;--y:22%"></i><i class="cj-spark" style="--x:78%;--y:30%;--d:.3s"></i><i class="cj-spark" style="--x:30%;--y:74%;--d:.6s"></i><i class="cj-spark" style="--x:84%;--y:70%;--d:.15s"></i>
+      <svg class="cj-cat" viewBox="0 0 200 200" aria-hidden="true">
+        <path class="cj-tail" d="M140 150c30 4 44-14 40-40" stroke="#f39a3d" stroke-width="12" stroke-linecap="round" fill="none"/>
+        <ellipse cx="100" cy="150" rx="46" ry="36" fill="#f39a3d"/><ellipse cx="100" cy="158" rx="26" ry="22" fill="#ffd9b0"/>
+        <g class="cj-pawL"><ellipse cx="62" cy="140" rx="11" ry="20" fill="#f39a3d"/><ellipse cx="62" cy="124" rx="9" ry="7" fill="#ffd9b0"/></g>
+        <g class="cj-pawR"><ellipse cx="138" cy="140" rx="11" ry="20" fill="#f39a3d"/><ellipse cx="138" cy="124" rx="9" ry="7" fill="#ffd9b0"/></g>
+        <g class="cj-head"><path d="M52 92 58 38 84 64h32l26-26 6 54v18c0 24-22 38-48 38s-48-14-48-38z" fill="#f39a3d"/><path d="M62 52l4 22 12-10zM138 52l-4 22-12-10z" fill="#ff9fb4"/>
+        <ellipse cx="100" cy="106" rx="24" ry="17" fill="#ffd9b0"/><g class="cj-eyes"><ellipse cx="82" cy="86" rx="6" ry="8" fill="#1a1a1a"/><ellipse cx="118" cy="86" rx="6" ry="8" fill="#1a1a1a"/><circle cx="84" cy="83" r="2.2" fill="#fff"/><circle cx="120" cy="83" r="2.2" fill="#fff"/></g>
+        <path d="M96 99h8l-4 5z" fill="#ff7aa0"/><path d="M100 104q-6 8-12 4M100 104q6 8 12 4" stroke="#1a1a1a" stroke-width="2.2" fill="none"/>
+        <path d="M70 100 40 94M70 108 40 112M130 100l30-6M130 108l30 4" stroke="#1a1a1a" stroke-width="1.6"/></g>
+      </svg>
+      <div class="cj-sub">${who}のパケットは猫動画にすり替えられました</div>
+    </div>
+    <div class="cj-ctrl"><div class="cj-bar"><b></b></div><div class="cj-row"><span class="cj-play">❚❚</span><span class="cj-time">0:00 / 0:03</span><span class="cj-sp"></span><span class="cj-ic">🔊</span><span class="cj-ic">⛶</span></div></div>`;
+  document.body.appendChild(el);
+  const t0 = performance.now(), tm = el.querySelector('.cj-time');
+  const iv = setInterval(() => { const s = Math.min(3, Math.floor((performance.now() - t0) / dur * 3 + 0.0001)); tm.textContent = `0:0${s} / 0:03`; }, 120);
+  let done = false;
+  const close = () => { if (done) return; done = true; clearInterval(iv); el.classList.add('out'); setTimeout(() => el.remove(), 260);
+    ST.lostPop = seat; renderRail(); setTimeout(() => { if (ST.lostPop === seat) { ST.lostPop = null; } }, 1300); };   // the cat mark pops into the player's tray once the screen is back
+  el.addEventListener('pointerdown', close, { once: true });
+  setTimeout(close, dur);
+  $('#splash').innerHTML = '';
 }
 function splash(text, cls, sub, ms = 1300) {
   if (ST.calm) ms = Math.round(ms * 0.65);
@@ -1097,4 +1112,4 @@ async function connectOnline() {
     if (sess && (!qp || qp.toUpperCase() === sess.code)) ST.t.send({ t: 'join', code: sess.code, token: sess.token, name: ST.name });
   }
 })();
-window.__GP = { ST, S3, A, splash, catCard }; // debug handle
+window.__GP = { ST, S3, A, splash, catJack }; // debug handle
