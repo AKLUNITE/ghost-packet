@@ -727,3 +727,48 @@ label{color:#c9dacf}
 [data-layout=land] .pchip .m.x{bottom:auto;top:-6px}
 .die.x{display:grid;grid-template:1fr/1fr!important;place-items:center;padding:0!important}
 .die.x svg{width:72%;height:72%;fill:none;stroke:#b3122c;stroke-width:1.5;stroke-linecap:round}
+/* ═════ v6: packet tray (7 packets per player) / goal-count score ═════ */
+.tray{display:inline-flex;gap:2px;align-items:center;flex-wrap:nowrap}
+.tray .k{width:7px;height:7px;border-radius:2px;display:inline-grid;place-items:center;font-style:normal;box-sizing:border-box;flex:none}
+.tray .k.g{background:#ffd35c;color:#5a3c00;font-size:6px;line-height:1;box-shadow:0 0 4px rgba(255,211,92,.7)}
+.tray .k.a{background:var(--c);box-shadow:0 0 0 1px rgba(255,255,255,.75)}
+.tray .k.r{border:1.5px solid var(--c);background:transparent}
+.tray .k.x{background:#3a3532;color:#b8aca0}
+.tray .k.x svg{width:100%;height:100%;fill:currentColor}
+.tray .k.x svg circle{fill:#3a3532}
+.tray.big{gap:4px}
+.tray.big .k{width:18px;height:18px;border-radius:5px;font-size:11px;font-weight:900}
+.tray.big .k.g{font-size:12px}
+.tray.big .k.a{color:#0a0a0a;font-family:var(--f-mono)}
+.tray.big .k.r{border-width:2px}
+.trayrow{display:flex;margin-top:4px}
+.gstar{color:#ffd35c;font-size:.7em;margin-right:1px;vertical-align:.12em}
+.pc .score{white-space:nowrap}
+/* phones: score + tray inside the compact chip */
+[data-layout=port] .pchip .tray,[data-layout=land] .pchip .tray{margin-top:2px}
+[data-layout=port] .pchip .tray .k,[data-layout=land] .pchip .tray .k{width:6px;height:6px;border-radius:1.5px}
+[data-layout=port] .pchip .tray .k.g,[data-layout=land] .pchip .tray .k.g{font-size:0}
+[data-layout=port] .pchip .tray .k.x svg,[data-layout=land] .pchip .tray .k.x svg{display:none}
+[data-layout=port] .pchip .tray .k.x,[data-layout=land] .pchip .tray .k.x{background:#6d6460}
+.rack .slot svg{width:12px;height:12px}
+.rack .slot.gone svg{width:12px;height:12px;fill:#8d8178}
+/* cat-video card */
+.catcard{width:min(320px,86cqw);margin:auto;background:#f4ecda;color:#2b2218;border-radius:14px;padding:10px 12px 12px;box-shadow:0 6px 0 #8f8061,0 18px 40px rgba(0,0,0,.6);text-align:center;transform-origin:50% 60%;animation:catIn .5s cubic-bezier(.2,1.5,.4,1) both, catOut .35s ease-in 2.25s forwards;pointer-events:none}
+.catcard.calm{animation:catIn .2s ease-out both, catOut .3s ease-in 1.5s forwards}
+.cc-scr{border-radius:8px;overflow:hidden;border:3px solid #16161c;background:#16161c;line-height:0}
+.cc-scr svg{width:100%;height:auto}
+.cc-cat{animation:catBob .6s ease-in-out infinite;transform-origin:80px 70px}
+.cc-eye{animation:catBlink 2.2s infinite;transform-origin:80px 50px}
+.cc-bar{animation:catBar 2.6s linear both;transform-origin:6px 0}
+.cc-t{font-weight:900;font-size:17px;line-height:1.35;margin-top:8px}
+.cc-t b{color:#c4561b;font-size:1.15em}
+.cc-s{font-size:12px;color:#6f604b;margin-top:4px;line-height:1.45}
+@keyframes catIn{0%{transform:scale(.3) rotate(-8deg);opacity:0}100%{transform:none;opacity:1}}
+@keyframes catOut{to{transform:translateY(-12px) scale(.96);opacity:0}}
+@keyframes catBob{50%{transform:translateY(-3px) rotate(3deg)}}
+@keyframes catBlink{0%,92%,100%{transform:none}95%{transform:scaleY(.1)}}
+@keyframes catBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+[data-layout=port] .catcard{padding:7px 9px 9px}[data-layout=port] .cc-scr svg{max-height:22cqh}[data-layout=port] .cc-t{font-size:14px;margin-top:5px}[data-layout=port] .cc-s{font-size:11px}
+/* the packet that just became a cat pops in the player's tray */
+.tray .k.x.pop{animation:trayPop 1.2s cubic-bezier(.2,1.6,.4,1)}
+@keyframes trayPop{0%{transform:scale(2.6);background:#ffb86b}60%{transform:scale(1.3);background:#ffb86b}100%{transform:none}}

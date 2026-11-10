@@ -559,7 +559,7 @@ export class Scene3D {
     this.burst([0, 1.5, 0], { n: 120, colors: [col, '#ffffff'], speed: 15, up: true, size: 0.35 });
     this.shockwave([0, 0.95, 0], col, 22, 1.1);
     this.flash('#ffd34d', 0.5); this.shake(0.9);
-    this.floatText(`+${rank}`, [0, 5.4, 0], { size: 200, grad: ['#fff8c0', '#ffb02e'], wW: 7.5, dur: 2.2, rise: 2.4, glow: 0.9 });
+    this.floatText(`★+${rank}`, [0, 5.4, 0], { size: 200, grad: ['#fff8c0', '#ffb02e'], wW: 7.5, dur: 2.2, rise: 2.4, glow: 0.9 });
     this.setGoals(this.goalsText[0] + 1, this.goalsText[1], true); setTimeout(() => this._drawChip(false), 900);
   }
   fxApprove(i, v, streak) {

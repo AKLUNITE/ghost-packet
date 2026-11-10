@@ -95,13 +95,13 @@
     assert(s.players[0].lost === 1, 'sender not destroyed');
     assert(s.players[1].goals.length === 1 && !s.players[1].active, 'no reward expected');
   });
-  t('T13', 'T12のダウト失敗 → 賭けたゴール済みと得点が消える', () => {
+  t('T13', 'T12のダウト失敗 → 賭けたゴール済みが消え、ゴール数が1減る', () => {
     const s = mk(); exhaust(s, 1, [3, 5]); s.goalCount = 5;
     GP.beginTurn(s, 2); GP.declare(s, 0, 2, 0); GP.doubt(s, 1, 20, 5); GP.tick(s, 300);
     assert(s.players[1].goals.length === 1 && s.players[1].goals[0].rank === 3, 'goal not removed');
-    assert(GP.score(s.players[1]) === 3 && GP.total(s.players[1]) === 7, 'score/total');
+    assert(GP.score(s.players[1]) === 1 && GP.total(s.players[1]) === 7, 'score/total');
   });
-  t('T14', '順位3の駒が消える → 3は欠番、次は4点', () => {
+  t('T14', '順位3の駒が消える → 次のゴールの記録は順位4（得点には関係しない）', () => {
     const s = mk(); exhaust(s, 1, [3]); s.players[2].goals = [{ rank: 1 }, { rank: 2 }]; s.players[2].reserve = 4; s.goalCount = 3;
     GP.beginTurn(s, 2); GP.declare(s, 0, 2, 0); GP.doubt(s, 1, 20, 3); GP.tick(s, 300);
     s.players[3].active.pos = 8; s.turn = 3; s.phase = 'declare'; s.roll = 1;
@@ -119,20 +119,24 @@
     GP.declare(s, 0, 4, 100);
     assert(s.last.why === 'noone' && s.players[0].active.pos === 7 && !s.over, 'auto pass');
   });
-  t('T16', '送信可能者0 → 得点合計で確定（同点は同順位）', () => {
+  t('T16', '送信可能者0 → ゴール数で確定（同数は同順位）', () => {
     const s = mk(); exhaust(s, 1, [1, 7]); exhaust(s, 2, [3, 5]); exhaust(s, 3, [2, 6]); exhaust(s, 4, [4]);
     const p = s.players[0]; p.reserve = 0; p.lost = 6; p.active.pos = 8; s.goalCount = 7;
     GP.beginTurn(s, 1); GP.declare(s, 0, 1, 0); GP.tick(s, 40000);
     assert(s.over && s.over.type === 'nomove', 'type ' + (s.over && s.over.type));
-    assert(s.over.winners.length === 4 && !s.over.winners.includes(4), 'expected 4-way tie at 8, got ' + s.over.winners);
+    assert(s.over.winners.join() === '1,2,3' && s.over.standings[0].score === 2, 'expected 1,2,3 tied at 2 goals, got ' + s.over.winners);
   });
-  t('T17', '5人戦で10番目のゴール → 得点勝負で終了', () => {
+  t('T17', '5人戦で10番目のゴール → ゴール数で勝負して終了', () => {
     const s = mk(5); let r = 1;
     s.players.forEach((p, i) => { if (i) { p.goals = [{ rank: r++ }, { rank: r++ }]; p.reserve -= 2; } });
     const p0 = s.players[0]; p0.goals = [{ rank: 9 }]; p0.reserve -= 1; p0.active.pos = 8; s.goalCount = 9;
     GP.beginTurn(s, 1); GP.declare(s, 0, 1, 0); GP.tick(s, 40000);
     assert(s.over && s.over.type === 'slots', 'type ' + (s.over && s.over.type));
-    assert(s.over.winners[0] === 0 && GP.score(p0) === 19, 'winner/score');
+    assert(GP.score(p0) === 2 && s.over.winners.length === 5, 'all five have 2 goals → shared win, got ' + s.over.winners);
+  });
+  t('X03', 'ゴール数が多い人だけが勝つ（到着順は関係ない）', () => {
+    const s = mk(3); s.players[0].goals = [{ rank: 1 }, { rank: 2 }]; s.players[0].reserve -= 2; s.players[1].goals = [{ rank: 5 }]; s.players[1].reserve -= 1;
+    const st = GP.standings(s); assert(st[0].seat === 0 && st[0].score === 2 && st[1].score === 1, JSON.stringify(st));
   });
 
   t('X01', '3人戦が開始でき、得点枠は6', () => {

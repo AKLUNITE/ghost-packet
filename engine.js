@@ -191,7 +191,8 @@
     nextTurn(s);
   }
 
-  function score(p) { return p.goals.reduce((a, g) => a + g.rank, 0); }
+  // 勝敗はゴールしたパケットの数だけで決まる（2026-11 ユーザー決定。以前は到着順位の合計点）
+  function score(p) { return p.goals.length; }
   function standings(s) {
     const rows = s.players.map(p => ({ seat: p.seat, score: score(p), goals: p.goals.length }));
     rows.sort((a, b) => b.score - a.score);

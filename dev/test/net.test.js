@@ -131,13 +131,13 @@ t('T12', 'ゴール済みのみ → 賭けてダウト可', async () => {
   const done = settle(cs[1]); cs[1].send({ t: 'doubt', rank: 3 }); await done;
   assert(P(cs[1], 0).lost === 1 && P(cs[1], 1).goals.length === 1 && P(cs[1], 1).pos === null, 'result'); return cs;
 });
-t('T13', 'T12のダウト失敗 → ゴール済みと得点が消える', async () => {
+t('T13', 'T12のダウト失敗 → ゴール済みが1個消える', async () => {
   const cs = await room(5); await debug(cs, "G.roll=2; G.goalCount=5;" + EXH(1, [3, 5]));
   cs[0].send({ t: 'declare', v: 2 }); await cs[1].wait(m => m.view && m.view.phase === 'review');
   const done = settle(cs[1]); cs[1].send({ t: 'doubt', rank: 5 }); await done;
-  assert(P(cs[1], 1).goals.join() === '3' && P(cs[1], 1).score === 3, 'goal removed'); return cs;
+  assert(P(cs[1], 1).goals.join() === '3' && P(cs[1], 1).score === 1, 'goal removed'); return cs;
 });
-t('T14', '順位3が消える → 次は4点', async () => {
+t('T14', '順位3が消える → 次のゴールの記録は順位4', async () => {
   const cs = await room(5); await debug(cs, "G.roll=2; G.goalCount=3; G.players[2].goals=[{rank:1},{rank:2}]; G.players[2].reserve=4;" + EXH(1, [3]));
   cs[0].send({ t: 'declare', v: 2 }); await cs[1].wait(m => m.view && m.view.phase === 'review');
   let done = settle(cs[1]); cs[1].send({ t: 'doubt', rank: 3 }); await done;
@@ -156,16 +156,16 @@ t('T15', '送信可能者1名 → 即終了しない', async () => {
   done = settle(cs[1]); cs[0].send({ t: 'declare', v: 4 }); const m = await done;
   assert(m.events.some(e => e.why === 'noone') && P(cs[1], 0).pos === 7 && !m.view.over, 'auto pass'); return cs;
 });
-t('T16', '送信可能者0 → 得点合計で確定', async () => {
+t('T16', '送信可能者0 → ゴール数で確定', async () => {
   const cs = await room(5); await debug(cs, "G.roll=1; G.goalCount=7;" + EXH(1, [1, 7]) + EXH(2, [3, 5]) + EXH(3, [2, 6]) + EXH(4, [4]) + "{const p=G.players[0];p.reserve=0;p.lost=6;p.active.pos=8;}");
   const over = cs[1].wait(m => m.view && m.view.over); cs[0].send({ t: 'declare', v: 1 }); await sleep(50); await debug(cs, 'G.review.deadline=Date.now()+100');
-  const m = await over; assert(m.view.over.type === 'nomove' && m.view.over.winners.length === 4, 'tie'); return cs;
+  const m = await over; assert(m.view.over.type === 'nomove' && m.view.over.winners.join() === '1,2,3', 'tie ' + m.view.over.winners); return cs;
 });
-t('T17', '5人戦10番目のゴール → 得点勝負で終了', async () => {
+t('T17', '5人戦10番目のゴール → ゴール数で勝負して終了', async () => {
   const cs = await room(5);
   await debug(cs, "let r=1; G.players.forEach((p,i)=>{ if(i){p.goals=[{rank:r++},{rank:r++}]; p.reserve-=2;} }); const p0=G.players[0]; p0.goals=[{rank:9}]; p0.reserve-=1; p0.active.pos=8; G.goalCount=9; G.roll=1;");
   const over = cs[1].wait(m => m.view && m.view.over); cs[0].send({ t: 'declare', v: 1 }); await sleep(50); await debug(cs, 'G.review.deadline=Date.now()+100');
-  const m = await over; assert(m.view.over.type === 'slots' && m.view.over.winners[0] === 0, 'slots'); return cs;
+  const m = await over; assert(m.view.over.type === 'slots' && m.view.over.winners.length === 5, 'slots ' + m.view.over.winners); return cs;
 });
 
 t('X03', '3人ルームで開始・6人目は満員で拒否', async () => {

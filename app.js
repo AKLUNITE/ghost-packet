@@ -277,7 +277,7 @@ async function fx(e) {
       ST.duelStage = 'result'; showDuel('result', d); endSuspense();
       const iWon = (role === 'ch' && !e.truth) || (role === 'sd' && e.truth);
       const gain = d.stake.kind === 'active' ? `+${e.value}前進` : '前進なし';
-      const H = role === 'ch' ? (e.truth ? ['外した…', `${sdN}は本当だった。あなたの${d.stake.kind === 'active' ? 'パケット' : `ゴール済み${d.stake.rank}点`}を没収`] : ['見破った！', `${sdN}の嘘を暴いた（実際 ${R}）・あなた ${gain}`])
+      const H = role === 'ch' ? (e.truth ? ['外した…', `${sdN}は本当だった。あなたの${d.stake.kind === 'active' ? 'パケット' : 'ゴール済み1個'}を没収`] : ['見破った！', `${sdN}の嘘を暴いた（実際 ${R}）・あなた ${gain}`])
         : role === 'sd' ? (e.truth ? ['守り切った！', `${chN}の誤監査・あなた +${e.value}前進`] : ['バレた…', `${chN}に見破られた・パケットは猫動画に`])
         : (e.truth ? ['ダウト失敗', `${sdN}は本当だった（実際 ${R}）→ ${sdN}の勝ち`] : ['ダウト成功', `${sdN}の嘘（実際 ${R}）→ ${chN}の勝ち`]);
       splash(H[0], (role === 'by' ? 'cyan' : iWon ? 'gold' : 'red') + ' rstamp', H[1], 1900);
@@ -289,17 +289,23 @@ async function fx(e) {
     }
     case 'move': if (ok) S3.setPacket(e.seat, e.to); A.sfx('step', { k: e.to }); return e.by * 190 + 150;
     case 'goal': {
-      log(`${nm(e.seat)} がゴール！ 順位${e.rank}（${e.rank}点）`);
-      if (ok) { S3.setPacket(e.seat, null); S3.fxGoal(e.seat, e.rank); }
-      A.sfx('goal'); vib([20, 30, 20, 30, 80]); splash('GOAL!!', 'gold', `${P(e.seat) ? P(e.seat).name : ''}  +${e.rank}点`, 1500); return 1250;
+      log(`${nm(e.seat)} がゴール！（${P(e.seat) ? P(e.seat).goals.length : ''}個目）`);
+      if (ok) { S3.setPacket(e.seat, null); S3.fxGoal(e.seat, 1); }
+      A.sfx('goal'); vib([20, 30, 20, 30, 80]); splash('GOAL!!', 'gold', `${P(e.seat) ? P(e.seat).name : ''}  ★${P(e.seat) ? P(e.seat).goals.length : ''}個目`, 1500); return 1250;
     }
     case 'destroy': {
-      if (e.cause === 'cat') { log(`${nm(e.seat)} のパケットは猫動画に変換された`); if (ok) S3.fxCat(e.seat); }
-      else { log(`${nm(e.seat)} のパケットを誤監査で没収`); if (ok) S3.fxConfiscate(e.seat); A.sfx('misaudit'); }
-      await sleep(e.cause === 'cat' ? 700 : 450); if (ok) S3.setPacket(e.seat, null); return 200;
+      ST.lostPop = e.seat; setTimeout(() => { if (ST.lostPop === e.seat) ST.lostPop = null; }, 1300);
+      if (e.cause === 'cat') {
+        log(`${nm(e.seat)} のパケットは嘘がバレて猫動画にすり替えられた（パケット1個を失う）`);
+        if (ok) S3.fxCat(e.seat);
+        await sleep(950); if (ok) S3.setPacket(e.seat, null);
+        catCard(e.seat); A.sfx('meow'); return 1900;
+      }
+      log(`${nm(e.seat)} のパケットを誤監査で没収`); if (ok) S3.fxConfiscate(e.seat); A.sfx('misaudit');
+      await sleep(450); if (ok) S3.setPacket(e.seat, null); return 200;
     }
     case 'insert': if (ok) { S3.setPacket(e.seat, 0, true); const S = S3.seats[e.seat]; if (S) S.reserve = Math.max(0, S.reserve - 1); } A.sfx('clack'); return 180;
-    case 'goalLost': log(`${nm(e.seat)} のゴール済み（${e.rank}点）を没収。${e.rank}番は欠番`); if (ok) S3.floatText(`-${e.rank}点`, S3.headWorld(e.seat), { cache: true, size: 170, grad: ['#ffd0d0', '#ff2a3a'], wW: 4 }); A.sfx('misaudit'); return 500;
+    case 'goalLost': log(`${nm(e.seat)} のゴール済みパケットを1個没収`); if (ok) S3.floatText('★-1', S3.headWorld(e.seat), { cache: true, size: 170, grad: ['#ffd0d0', '#ff2a3a'], wW: 4 }); A.sfx('misaudit'); return 500;
     case 'win3': case 'end': {
       const o = ST.view && ST.view.over; if (!o) return 0;
       log(e.t === 'win3' ? `${nm(e.seat)} が3パケット送信で即勝利` : `ゲーム終了（${{ slots: 'ゴール台満了', nomove: '送信可能なパケットなし' }[e.why] || ''}）`);
@@ -322,7 +328,7 @@ function roleOf(ch, sd) { const m = me(); return m === ch ? 'ch' : m === sd ? 's
 function duelMini(stage, d) {
   const res = stage === 'result', R = d.roll === 'X' ? '×' : d.roll, chWin = res && !d.truth;
   const pill = (i, win) => { const pp = palOf(i); return `<span class="dm-p ${res ? (win ? 'win' : 'lose') : ''}" style="--pc:${pp.hex}">${symSvg(pp.sym, pp.hex, 12)}<span class="dm-n">${i === me() ? 'あなた' : nm(i)}</span>${res ? `<b>${win ? 'WIN' : 'LOSE'}</b>` : ''}</span>`; };
-  const chOut = d.truth ? (d.stake && d.stake.kind === 'goal' ? `ゴール済み${d.stake.rank}点を没収` : 'パケット没収') : (d.stake && d.stake.kind === 'goal' ? '前進なし' : `+${d.value} 前進`);
+  const chOut = d.truth ? (d.stake && d.stake.kind === 'goal' ? 'ゴール済み1個を没収' : 'パケット没収') : (d.stake && d.stake.kind === 'goal' ? '前進なし' : `+${d.value} 前進`);
   const sdOut = d.truth ? `+${d.value} 前進` : '猫動画に';
   const actual = res ? `<b class="${d.truth ? 'ok' : 'ng'}">${R}</b>` : `<b class="q">?</b>`;
   const tail = res ? `<span class="dm-stamp ${d.truth ? 'ok' : 'ng'}">${d.truth ? '本当だった' : '嘘だった'}</span>`
@@ -344,7 +350,7 @@ function duelHtml(stage, d, compact) {
       <div class="dname">${symSvg(pp.sym, pp.hex, 15)}<span>${nm(i)}</span></div>
       ${res ? `<div class="dres">${win ? 'WIN' : 'LOSE'}</div><div class="dout">${out}</div>` : ''}</div>`;
   };
-  const chOut = d.truth ? (d.stake && d.stake.kind === 'goal' ? `ゴール済み${d.stake.rank}点を没収` : '転送中パケットを没収') : (d.stake && d.stake.kind === 'goal' ? '前進なし（ゴール済みを賭けた監査）' : `+${d.value} 前進`);
+  const chOut = d.truth ? (d.stake && d.stake.kind === 'goal' ? 'ゴール済み1個を没収' : '転送中パケットを没収') : (d.stake && d.stake.kind === 'goal' ? '前進なし（ゴール済みを賭けた監査）' : `+${d.value} 前進`);
   const sdOut = d.truth ? `+${d.value} 前進` : 'パケットは猫動画に';
   const mid = res
     ? `<div class="dvs"><span>申告</span><b>${d.value}</b><span>実際</span><b class="${d.truth ? 'ok' : 'ng'}">${R}</b></div><div class="dverdict stamp ${d.truth ? 'ok' : 'ng'}">${d.truth ? '本当だった' : '嘘だった'}</div>`
@@ -521,6 +527,17 @@ function nextSeatOf(v) {
   for (let k = 1; k <= v.players.length; k++) { const s = (v.turn + k) % v.players.length; if (v.players[s].pos != null) return s; }
   return null;
 }
+// a player's 7 packets at a glance: ★ = goal, filled = in transit (with node), hollow = still in hand, cat = turned into a cat video / confiscated
+const CAT_SVG = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 5 2.6 1.6 4.8 3.6h2.4l2.2-2L10 5v3.2C10 10 8.2 11 6 11S2 10 2 8.2z"/><circle cx="4.6" cy="6.6" r=".7"/><circle cx="7.4" cy="6.6" r=".7"/></svg>';
+function trayHtml(p, big) {
+  const c = col(p.seat), out = [];
+  p.goals.forEach(() => out.push(`<i class="k g" title="ゴール済み">★</i>`));
+  if (p.pos != null) out.push(`<i class="k a" style="--c:${c}" title="転送中 N${p.pos}">${big ? p.pos : ''}</i>`);
+  for (let k = 0; k < p.reserve; k++) out.push(`<i class="k r" style="--c:${c}" title="手元"></i>`);
+  for (let k = 0; k < p.lost; k++) out.push(`<i class="k x ${k === p.lost - 1 && ST.lostPop === p.seat ? 'pop' : ''}" title="猫動画・没収">${CAT_SVG}</i>`);
+  return `<span class="tray ${big ? 'big' : ''}">${out.join('')}</span>`;
+}
+const trayText = (p) => `ゴール${p.goals.length}・${p.pos == null ? '転送中なし' : '転送中N' + p.pos}・手元${p.reserve}${p.lost ? '・猫' + p.lost : ''}`;
 function recordHtml(i) {
   const s = (RV().stats || [])[i] || { ok: 0, lie: 0, truth: 0, dw: 0, dl: 0 };
   return `審議通過 ${s.ok}・嘘が発覚 ${s.lie}・監査で真実 ${s.truth}<br>自分の監査 成功 ${s.dw} / 失敗 ${s.dl}`;
@@ -532,7 +549,7 @@ function renderRail() {
   if (ST.layout !== 'pc') {
     $('#rail').innerHTML = v.players.map(p => {
       const i = p.seat, st = statusOf(p);
-      return `<button class="pchip ${v.turn === i && !v.over ? 'turn' : ''} ${st.off ? 'off' : ''} ${ST.nextSeat === i ? 'next' : ''}" data-player="${i}"><span class="row1">${symSvg(palOf(i).sym, col(i), 11)}<span class="n">${esc(p.name)}</span></span><span class="s">${p.score}</span>${st.label ? `<span class="m ${st.k}">${st.label}</span>` : ''}${st.off ? '<span class="m x">切断</span>' : ''}</button>`;
+      return `<button class="pchip ${v.turn === i && !v.over ? 'turn' : ''} ${st.off ? 'off' : ''} ${ST.nextSeat === i ? 'next' : ''}" data-player="${i}"><span class="row1">${symSvg(palOf(i).sym, col(i), 11)}<span class="n">${esc(p.name)}</span></span><span class="s"><b class="gstar">★</b>${p.score}</span>${trayHtml(p)}${st.label ? `<span class="m ${st.k}">${st.label}</span>` : ''}${st.off ? '<span class="m x">切断</span>' : ''}</button>`;
     }).join('');
     return;
   }
@@ -542,23 +559,22 @@ function renderRail() {
     const stk = r.streak && r.streak[i] >= 2 ? `<span class="streak">${r.streak[i]}連</span>` : '';
     return `<div class="pc ${v.turn === i && !v.over ? 'turn' : ''} ${st.off ? 'off' : ''}">${stk}<div class="bar" style="background:${col(i)};box-shadow:0 0 10px ${col(i)}"></div>
       <div style="min-width:0"><div class="nm">${symSvg(palOf(i).sym, col(i), 13)}<span>${esc(p.name)}${meTag(p)}</span>${palOf(i).bot ? '<span class="cpu">CPU</span>' : ''}</div>
-      <div class="st">${chip}${ST.nextSeat === i && !st.label ? '<span class="chip n">NEXT</span>' : ''}<span class="pips">${Array.from({ length: p.reserve }, () => `<i style="background:${col(i)}"></i>`).join('') || '予備0'}</span><span>${p.pos == null ? '—' : 'N' + p.pos}</span>
-      <span class="gch">${p.goals.map(g => `<b style="background:${col(i)}">${g}</b>`).join('')}</span>${p.lost ? `<span title="猫化・没収">✕${p.lost}</span>` : ''}</div></div>
-      <div class="score">${p.score}</div><div class="more">${histHtml(i, 8)}<div>${recordHtml(i)}</div></div></div>`;
+      <div class="st">${chip}${ST.nextSeat === i && !st.label ? '<span class="chip n">NEXT</span>' : ''}</div><div class="trayrow" title="${trayText(p)}">${trayHtml(p, true)}</div></div>
+      <div class="score"><b class="gstar">★</b>${p.score}</div><div class="more">${histHtml(i, 8)}<div>${recordHtml(i)}</div></div></div>`;
   }).join('');
 }
 function rackHtml() {
   const v = DV();
   const own = {}; v.players.forEach(p => p.goals.forEach(g => { own[g] = p.seat; }));
-  let h = `<div class="ttl"><span>ゴール台（ゴール順＝得点）</span><span>${v.maxRank}枠</span></div>`;
-  for (let k = 1; k <= v.maxRank; k++) h += own[k] != null ? `<div class="slot f" style="background:${col(own[k])};color:${col(own[k])}"><span style="color:#0a0a0a">${k}</span></div>` : k <= v.goalCount ? `<div class="slot gone">${k}</div>` : `<div class="slot">${k}</div>`;
+  let h = `<div class="ttl"><span>ゴール台（全体で${v.maxRank}個で終了）</span><span>${v.goalCount}/${v.maxRank}</span></div>`;
+  for (let k = 1; k <= v.maxRank; k++) h += own[k] != null ? `<div class="slot f" style="background:${col(own[k])};color:${col(own[k])}">${symSvg(palOf(own[k]).sym, '#0a0a0a', 12)}</div>` : k <= v.goalCount ? `<div class="slot gone" title="ゴール後に没収">${CAT_SVG}</div>` : `<div class="slot"></div>`;
   return h;
 }
 function renderRack() {
   const v = DV(); if (!v) return;
   const own = {}; v.players.forEach(p => p.goals.forEach(g => { own[g] = p.seat; }));
-  let h = `<div class="ttl"><span>ゴール台（ゴール順＝得点）</span><span>${v.maxRank}枠</span></div>`;
-  for (let k = 1; k <= v.maxRank; k++) h += own[k] != null ? `<div class="slot f" style="background:${col(own[k])};color:${col(own[k])}"><span style="color:#0a0a0a">${k}</span></div>` : k <= v.goalCount ? `<div class="slot gone">${k}</div>` : `<div class="slot">${k}</div>`;
+  let h = `<div class="ttl"><span>ゴール台（全体で${v.maxRank}個で終了）</span><span>${v.goalCount}/${v.maxRank}</span></div>`;
+  for (let k = 1; k <= v.maxRank; k++) h += own[k] != null ? `<div class="slot f" style="background:${col(own[k])};color:${col(own[k])}">${symSvg(palOf(own[k]).sym, '#0a0a0a', 12)}</div>` : k <= v.goalCount ? `<div class="slot gone" title="ゴール後に没収">${CAT_SVG}</div>` : `<div class="slot"></div>`;
   $('#rack').innerHTML = h;
 }
 function declTiles(pos, roll, locked, hidden) {
@@ -619,10 +635,10 @@ function renderDock() {
     else {
       const passed = rv.iPassed;
       if (rv.myStake === 'goal') {
-        const gs = P(me()).goals.slice().sort((a, b) => a - b); if (!gs.includes(ST.stake)) ST.stake = gs[0];
-        h += `<div class="row small">賭けるゴール済み（失敗で得点ごと没収・成功しても前進なし）<div class="stakes">${gs.map(g => `<button data-stake="${g}" aria-pressed="${g === ST.stake}">${g}点</button>`).join('')}</div></div>`;
+        const gs = P(me()).goals.slice().sort((a, b) => b - a); ST.stake = gs[0];
+        h += `<div class="small">手元のパケットがないので、ゴール済み1個を賭けてダウトします（外すと1個没収・当てても前進なし）</div>`;
       }
-      h += `<div class="acts"><button class="bDoubt acard2" data-doubt><span class="ck">AUDIT</span><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="17" cy="17" r="10"/><path d="M25 25 L35 35"/></svg><b>DOUBT${K('D')}</b><small>${rv.myStake === 'active' ? `<span class="lg-only">転送中パケットを賭ける・</span>成功で +${rv.value}` : `${ST.stake}点を賭ける`}</small></button>
+      h += `<div class="acts"><button class="bDoubt acard2" data-doubt><span class="ck">AUDIT</span><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="17" cy="17" r="10"/><path d="M25 25 L35 35"/></svg><b>DOUBT${K('D')}</b><small>${rv.myStake === 'active' ? `<span class="lg-only">転送中パケットを賭ける・</span>成功で +${rv.value}` : 'ゴール済み1個を賭ける'}</small></button>
         <button class="bPass acard2" data-pass aria-pressed="${passed}"><span class="ck">PASS</span><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 21 L17 29 L32 12"/></svg><b>${passed ? 'スルー済み' : 'スルー'}${K('S')}</b><small>${passed ? '押すと取り消し' : '<span class="lg-only">全員スルーで</span>即承認'}</small></button></div>`;
     }
   } else if (v.phase === 'result' && v.last) {
@@ -751,9 +767,9 @@ function renderOver() {
   const iWon = o.winners.includes(me());
   sc.innerHTML = `<div class="panel" style="width:min(640px,100%)"><div class="glass card">
     <div class="hero"><h1 style="font-size:clamp(40px,8vw,70px)">${iWon ? 'YOU WIN' : 'WINNER'}</h1></div>
-    <div class="big" style="text-align:center">${o.type === 'three' ? `${who(o.winners[0])} が3パケット送信に成功！` : `得点勝負：${o.winners.map(who).join('・')}`}</div>
-    <table class="st">${o.standings.map(r => `<tr class="${r.seat === me() ? 'me' : ''}"><td style="font-family:var(--f-mono);width:3em">${r.place}位</td><td>${who(r.seat)}</td><td style="text-align:right;font-family:var(--f-mono)">${r.goals}個</td><td style="text-align:right;font-family:var(--f-disp);font-size:20px;width:3em">${r.score}</td></tr>`).join('')}</table>
-    <div class="small">${o.type === 'three' ? '3個即勝利のため得点は参考表示。' : '同点は同順位。'}</div>
+    <div class="big" style="text-align:center">${o.type === 'three' ? `${who(o.winners[0])} が3パケット送信に成功！` : `ゴール数で決着：${o.winners.map(who).join('・')}`}</div>
+    <table class="st">${o.standings.map(r => `<tr class="${r.seat === me() ? 'me' : ''}"><td style="font-family:var(--f-mono);width:3em">${r.place}位</td><td>${who(r.seat)}</td><td style="text-align:right;font-family:var(--f-disp);font-size:20px;width:4em">★${r.score}</td></tr>`).join('')}</table>
+    <div class="small">${o.type === 'three' ? '3個ゴールで即勝利。' : 'ゴールした数が同じ人は同順位（同時優勝）。'}</div>
     <div class="awards">${awards()}</div>
     ${host ? `<div class="row"><button class="go" id="bAgain" style="flex:2">${ST.mode === 'practice' ? 'もう一戦' : 'ロビーに戻る'}</button><button class="go ghost" id="bQuit" style="flex:1">タイトルへ</button></div>` : `<div class="small" style="text-align:center">ホストがロビーに戻すのを待っています</div><button class="go ghost" id="bQuit">タイトルへ</button>`}
   </div></div>`;
@@ -765,7 +781,7 @@ const GUIDE = [
   ['出目はあなただけが見る', `<div class="gill"><div class="row" style="justify-content:center;gap:18px">${dieHtml(3)}<span class="gsmall">カップの中は<br>あなただけが見る</span></div></div>`, '手番ではカップを長押しして振り、離して置きます。出目は 1・2・3・4・×・× のどれか。見えるのはあなただけです。'],
   ['1〜4を申告。嘘でもいい', `<div class="gill row" style="justify-content:center"><span class="gnum">1</span><span class="gnum">2</span><span class="gnum">3</span><span class="gnum hot">4</span></div>`, '申告した数だけ進めます。×が出たら何を言っても嘘。'],
   ['怪しいと思ったらDOUBT', `<div class="gill"><div class="gdoubt">DOUBT</div></div>`, '嘘なら相手のパケットは猫動画に、あなたは申告値だけ前進。真実なら、あなたのパケットが没収。'],
-  ['先に3個届けたら勝ち', `<div class="gill row" style="justify-content:center;gap:10px">${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}</div>`, '「ダウトしようかな」と口で言うだけなら何も起きません。画面のDOUBTを押した人だけが監査します。'],
+  ['先に3個届けたら勝ち', `<div class="gill row" style="justify-content:center;gap:10px">${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}${symSvg(0, '#ffcf4a', 34)}</div>`, '勝敗はゴールした数だけ。途中で終わったら、ゴール数が一番多い人の勝ちです。「ダウトしようかな」と口で言うだけなら何も起きません。'],
 ];
 function guide(k = 0) {
   const [t, ill, d] = GUIDE[k];
@@ -797,7 +813,7 @@ function renderSheet() {
     const i = +k.slice(1), p = DV().players[i]; if (!p) { closeSheet(); return; }
     const st = statusOf(p);
     h += `<h3>${who(i)} ${st.label ? `<span class="chip ${st.k}">${st.label}</span>` : ''}</h3>
-      <div class="recs"><div>得点<b>${p.score}</b></div><div>ゴール済み<b>${p.goals.length ? p.goals.join('・') : '—'}</b></div><div>転送中<b>${p.pos == null ? '—' : 'N' + p.pos}</b></div><div>予備<b>${p.reserve}</b></div><div>猫化・没収<b>${p.lost}</b></div><div>連続通過<b>${(ST.room.streak || [])[i] || 0}</b></div></div>
+      <div class="trayrow" style="margin:4px 0 8px">${trayHtml(p, true)}</div><div class="recs"><div>ゴール<b>★${p.goals.length}</b></div><div>転送中<b>${p.pos == null ? '—' : 'N' + p.pos}</b></div><div>手元<b>${p.reserve}</b></div><div>猫動画・没収<b>${p.lost}</b></div><div>連続通過<b>${(ST.room.streak || [])[i] || 0}</b></div></div>
       <div class="histline" style="margin-top:10px"><span class="small">申告履歴</span>${histHtml(i, 12)}</div>
       <p class="small" style="margin:6px 0 0">${recordHtml(i)}</p><p class="small" style="margin:4px 0 0">白＝審議通過（真偽は不明）・赤＝嘘が発覚（小さい数字が実際の出目）・緑＝監査で真実と証明</p>`;
   }
@@ -805,6 +821,24 @@ function renderSheet() {
 }
 
 // ───────── overlays ─────────
+// "your packet became a cat video": a video-player card over the board, clearer than the 3D sprite alone
+function catCard(seat) {
+  const p = P(seat); if (!p) return;
+  const mine = seat === me(), el = $('#splash');
+  el.innerHTML = `<div class="catcard ${ST.calm ? 'calm' : ''}" style="--c:${col(seat)}">
+    <div class="cc-scr"><svg viewBox="0 0 160 100" aria-hidden="true">
+      <rect width="160" height="100" rx="6" fill="#ffd9a8"/><rect y="60" width="160" height="40" fill="#ffb3c7"/>
+      <g class="cc-cat"><path d="M48 52 54 18 72 34h16l18-16 6 34v14c0 16-14 26-32 26s-34-10-34-26z" fill="#f39a3d"/>
+      <ellipse cx="80" cy="66" rx="18" ry="12" fill="#ffd9b0"/><g class="cc-eye"><ellipse cx="68" cy="50" rx="4" ry="5.5" fill="#1a1a1a"/><ellipse cx="92" cy="50" rx="4" ry="5.5" fill="#1a1a1a"/></g>
+      <path d="M77 60h6l-3 4z" fill="#ff7aa0"/><path d="M80 64q-4 6-8 3M80 64q4 6 8 3" stroke="#1a1a1a" stroke-width="1.6" fill="none"/>
+      <path d="M58 60 36 56M58 65 36 68M102 60l22-4M102 65l22 3" stroke="#1a1a1a" stroke-width="1.2"/></g>
+      <rect y="88" width="160" height="12" fill="rgba(0,0,0,.7)"/><rect class="cc-bar" x="6" y="93" width="110" height="3" fill="#ff3b3b"/><text x="154" y="97" font-size="7" fill="#fff" text-anchor="end" font-family="monospace">cat.mp4</text>
+    </svg></div>
+    <div class="cc-t">${mine ? 'あなたの' : esc(p.name) + ' の'}パケットが<br><b>猫動画</b>にすり替えられた</div>
+    <div class="cc-s">嘘がバレたパケットはゲームから消えます（1個失う）。${p.reserve ? `次は手元の ${p.reserve} 個から送ります` : '手元のパケットはもうありません'}</div>
+  </div>`;
+  clearTimeout(ST.splashT); ST.splashT = setTimeout(() => { el.innerHTML = ''; }, ST.calm ? 1800 : 2600);
+}
 function splash(text, cls, sub, ms = 1300) {
   if (ST.calm) ms = Math.round(ms * 0.65);
   const n = Math.max(3, [...String(text)].reduce((w, ch) => w + (/[A-Z0-9]/.test(ch) ? 0.8 : /[\x20-\x7e]/.test(ch) ? 0.6 : 1.04), 0));   // text width in em, so it always fits the board
@@ -827,7 +861,8 @@ const RULES = `<h2>遊び方</h2>
  <h3>手番</h3><p>カップを振って、あなたにだけ見える転送許容量（1・2・3・4・×・× が等確率）を確認し、1〜4を申告。スマホでは数字をタップで選び、もう一度タップで決定です。出目と同じなら真実、違えば嘘。×は何を言っても嘘です。</p>
  <h3>ダウト審議</h3><p>申告後は自由に会話できます。画面のDOUBTを押した1人だけが監査します。誰も押さず時間切れ、または全員スルーで申告どおり前進し、本当の出目は誰にも明かされません。</p>
  <ul><li>嘘だった：送信者のパケットは猫動画に変換されて消滅。監査した人は申告値だけ前進。</li><li>真実だった：送信者は前進。監査した人は転送中パケットを没収。</li><li>250ms以内の同時ダウトは、手番の次の席から時計回りで近い人が挑戦者。</li><li>口で「ダウトしようかな」と言っても正式なダウトにはなりません。</li></ul>
- <h3>ゴールと得点</h3><p>ゴール順に1点、2点、3点…。手持ちを使い切った人はゴール済みを1個賭けてダウトできます（成功しても前進なし、失敗でその得点ごと没収・番号は欠番）。ゴール台（人数×2枠）が埋まるか誰も送れなくなったら、得点合計で勝負。</p>
+ <h3>勝敗</h3><p><b>ゴールしたパケットの数だけで勝負</b>。3個ゴールした人がその場で勝ち。全体のゴール数が人数×2個に達するか、誰も送れなくなったら、その時点でゴール数が一番多い人の勝ち（同数は同時優勝）。手元のパケットを使い切った人は、ゴール済みを1個賭けてダウトできます（当てても前進なし、外すと1個没収）。</p>
+ <h3>パケットの見方</h3><p>プレイヤー欄の7つの印が、その人のパケット全部です。<b>★</b>＝ゴール済み、<b>塗りつぶし</b>＝転送中（数字は今いるノード）、<b>枠だけ</b>＝手元、<b>猫</b>＝猫動画にされた・没収された。</p>
  <h3>マナー</h3><p>出目が見える画面共有は禁止。申告に時間制限はありませんが、30秒を過ぎると「考え中」が表示されます。</p>`;
 
 // ───────── input ─────────
@@ -1069,4 +1104,4 @@ async function connectOnline() {
     if (sess && (!qp || qp.toUpperCase() === sess.code)) ST.t.send({ t: 'join', code: sess.code, token: sess.token, name: ST.name });
   }
 })();
-window.__GP = { ST, S3, A, splash }; // debug handle
+window.__GP = { ST, S3, A, splash, catCard }; // debug handle

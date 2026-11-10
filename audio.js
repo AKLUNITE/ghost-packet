@@ -148,6 +148,12 @@ export class Audio {
       case 'slam': { const g = o.g == null ? 1 : o.g; tone('sine', 120, 0.22, 0.75 * g, 0, 48); noise(0.12, 0.55 * g, 'lowpass', 600); noise(0.05, 0.3 * g, 'bandpass', 1800, 0.005, 3);
         [0.07, 0.13, 0.17, 0.2].forEach((at, i) => noise(0.015, (0.22 - i * 0.045) * g, 'bandpass', 3400 + Math.random() * 1200, at, 8)); break; }
       case 'lift': noise(0.25, 0.12, 'bandpass', 900, 0, 1.2); tone('sine', 520, 0.12, 0.08, 0.05, 880); break;
+      // a short synthetic "meow" for the cat-video swap
+      case 'meow': { const o1 = c.createOscillator(), g1 = c.createGain(), f = c.createBiquadFilter(); o1.type = 'sawtooth';
+        o1.frequency.setValueAtTime(520, t); o1.frequency.linearRampToValueAtTime(980, t + 0.12); o1.frequency.linearRampToValueAtTime(620, t + 0.42);
+        f.type = 'bandpass'; f.frequency.setValueAtTime(1100, t); f.frequency.linearRampToValueAtTime(1800, t + 0.15); f.frequency.linearRampToValueAtTime(900, t + 0.45); f.Q.value = 3;
+        g1.gain.setValueAtTime(0.0001, t); g1.gain.exponentialRampToValueAtTime(0.5, t + 0.05); g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+        o1.connect(f); f.connect(g1); g1.connect(D); o1.start(t); o1.stop(t + 0.55); break; }
       case 'thunk': tone('sine', 140, 0.18, 0.5, 0, 60); noise(0.09, 0.4, 'lowpass', 700); noise(0.04, 0.2, 'bandpass', 2600, 0.01, 4); break;
       case 'clack': noise(0.035, 0.45, 'bandpass', 3200, 0, 5); tone('triangle', 1700, 0.04, 0.12); tone('sine', 420, 0.06, 0.2, 0.005, 300); break;
       case 'slap': noise(0.09, 0.55, 'bandpass', 1400, 0, 1.2); noise(0.05, 0.3, 'highpass', 4000, 0.004); tone('sine', 180, 0.08, 0.25, 0, 90); break;
