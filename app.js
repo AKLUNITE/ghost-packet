@@ -299,7 +299,10 @@ async function fx(e) {
         log(`${nm(e.seat)} のパケットは嘘がバレて猫動画にすり替えられた（パケット1個を失う）`);
         if (ok) S3.fxCat(e.seat);
         await sleep(650); if (ok) S3.setPacket(e.seat, null);
-        catJack(e.seat); A.sfx('meow'); setTimeout(() => A.sfx('meow', { at: 0 }), 900); return ST.calm ? 1500 : 2200;
+        // only the player who got caught has their screen hijacked; everyone else just sees the 3D cat and the tray mark
+        if (e.seat === me()) { catJack(e.seat); A.sfx('meow'); setTimeout(() => A.sfx('meow'), 900); return ST.calm ? 1500 : 2200; }
+        A.sfx('meow', { at: 0 }); ST.lostPop = e.seat; renderRail(); setTimeout(() => { if (ST.lostPop === e.seat) ST.lostPop = null; }, 1300);
+        return 600;
       }
       log(`${nm(e.seat)} のパケットを誤監査で没収`); if (ok) S3.fxConfiscate(e.seat); A.sfx('misaudit');
       await sleep(450); if (ok) S3.setPacket(e.seat, null); return 200;
